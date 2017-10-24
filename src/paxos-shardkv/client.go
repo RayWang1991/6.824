@@ -1,6 +1,6 @@
 package shardkv
 
-import "shardmaster"
+import "6.824/src/shardmaster"
 import "net/rpc"
 import "time"
 import "sync"

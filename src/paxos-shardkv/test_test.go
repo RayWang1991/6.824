@@ -1,7 +1,7 @@
 package shardkv
 
 import "testing"
-import "shardmaster"
+import "6.824/src/shardmaster"
 import "runtime"
 import "strconv"
 import "os"

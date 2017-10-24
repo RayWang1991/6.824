@@ -5,7 +5,7 @@ import "fmt"
 import "net/rpc"
 import "log"
 
-import "paxos"
+import "6.824/src/paxos"
 import "sync"
 import "sync/atomic"
 import "os"

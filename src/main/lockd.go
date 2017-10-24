@@ -12,7 +12,7 @@ package main
 // instead of a and b.
 
 import "time"
-import "lockservice"
+import "6.824/src/lockservice"
 import "os"
 import "fmt"
 

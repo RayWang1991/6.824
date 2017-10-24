@@ -1,8 +1,8 @@
 package shardmaster
 
 
-import "raft"
-import "labrpc"
+import "6.824/src/raft"
+import "6.824/src/labrpc"
 import "sync"
 import "encoding/gob"
 
