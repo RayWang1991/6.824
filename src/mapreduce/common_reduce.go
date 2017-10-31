@@ -1,13 +1,22 @@
 package mapreduce
 
+import (
+	"os"
+	"log"
+	"encoding/json"
+	"sort"
+	"bufio"
+	"fmt"
+)
+
 // doReduce does the job of a reduce worker: it reads the intermediate
 // key/value pairs (produced by the map phase) for this task, sorts the
 // intermediate key/value pairs by key, calls the user-defined reduce function
 // (reduceF) for each key, and writes the output to disk.
 func doReduce(
-	jobName string, // the name of the whole MapReduce job
+	jobName string,       // the name of the whole MapReduce job
 	reduceTaskNumber int, // which reduce task this is
-	nMap int, // the number of map tasks that were run ("M" in the paper)
+	nMap int,             // the number of map tasks that were run ("M" in the paper)
 	reduceF func(key string, values []string) string,
 ) {
 	// TODO:
@@ -31,4 +40,50 @@ func doReduce(
 	// 	enc.Encode(KeyValue{key, reduceF(...)})
 	// }
 	// file.Close()
+
+	tn := mergeName(jobName, reduceTaskNumber)
+	if DebugFlag {
+		fmt.Printf("output file %s\n", tn)
+	}
+	tf, err := os.Create(tn)
+	if err != nil {
+		log.Fatalf("open %s %s", tn, err)
+	}
+	enc := json.NewEncoder(tf)
+	defer tf.Close()
+
+	m := map[string]int{}
+	a := EntryArr{}
+
+	for i := 0; i < nMap; i++ {
+		rn := reduceName(jobName, i, reduceTaskNumber)
+		rf, err := os.Open(rn)
+		if err != nil {
+			log.Fatalf("open %s %s", rn, err)
+		}
+		if DebugFlag {
+			fmt.Printf("opent temp file %s\n", rn)
+		}
+
+		scan := bufio.NewScanner(rf)
+		for scan.Scan() {
+			kv := scan.Text()
+			k, v := DecodeKV(kv)
+			if id, ok := m[k]; ok {
+				e := a[id]
+				e.Values = append(e.Values, v)
+			} else {
+				m[k] = len(a)
+				e := Entry{k, []string{v}}
+				a = append(a, e)
+			}
+		}
+		rf.Close()
+	}
+
+	sort.Sort(a)
+	//output
+	for _, e := range a {
+		enc.Encode(KeyValue{e.Key, reduceF(e.Key, e.Values)})
+	}
 }
