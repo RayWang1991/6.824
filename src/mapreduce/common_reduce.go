@@ -45,7 +45,14 @@ func doReduce(
 	if DebugFlag {
 		fmt.Printf("output file %s\n", tn)
 	}
-	tf, err := os.Create(tn)
+	// TODO, bug, should not create ? but to open ?
+	tf, err := os.Open(tn)
+	fmt.Printf("try to opent output file %s\n", tn)
+	if err != nil {
+		fmt.Printf("open failed for %s\n", tn)
+		tf, err = os.Create(tn)
+		fmt.Printf("try to create output file %s\n", tn)
+	}
 	if err != nil {
 		log.Fatalf("open %s %s", tn, err)
 	}
@@ -70,7 +77,7 @@ func doReduce(
 			kv := scan.Text()
 			k, v := DecodeKV(kv)
 			if id, ok := m[k]; ok {
-				e := a[id]
+				e := &a[id] // copy by addr
 				e.Values = append(e.Values, v)
 			} else {
 				m[k] = len(a)

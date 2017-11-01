@@ -43,5 +43,5 @@ func (es EntryArr) Swap(i, j int) {
 	es[i], es[j] = es[j], es[i]
 }
 
-// debug
-var DebugFlag = true
+// self defined debug flag
+var DebugFlag = false
