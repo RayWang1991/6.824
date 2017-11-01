@@ -37,7 +37,7 @@ func (mr *Master) schedule(phase jobPhase) {
 			TaskNumber:    i,
 			NumOtherPhase: nios,
 		}
-		waitToDespatchOneTask(mr, i, dtas)
+		waitToDispatchOneTask(mr, i, dtas)
 	}
 	fmt.Printf("Schedule: %v phase done\n", phase)
 }
@@ -47,7 +47,7 @@ func runAndRestartWorker(w string, m *Master, taskId int, dargs *DoTaskArgs) {
 	suc := call(w, "Worker.DoTask", dargs, new(struct{}))
 	if !suc {
 		fmt.Printf("Call %s Dotask failed", w)
-		waitToDespatchOneTask(m, taskId, dargs)
+		waitToDispatchOneTask(m, taskId, dargs)
 		return
 	}
 	rargs := new(RegisterArgs)
@@ -58,7 +58,7 @@ func runAndRestartWorker(w string, m *Master, taskId int, dargs *DoTaskArgs) {
 	}
 }
 
-func waitToDespatchOneTask(m *Master, taskId int, dtas *DoTaskArgs) {
+func waitToDispatchOneTask(m *Master, taskId int, dtas *DoTaskArgs) {
 	w := <-m.registerChannel
 	debug("To Task for %s NO%d", w, taskId)
 	go runAndRestartWorker(w, m, taskId, dtas)
