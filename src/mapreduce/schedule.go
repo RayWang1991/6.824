@@ -42,7 +42,7 @@ func (mr *Master) schedule(phase jobPhase) {
 	fmt.Printf("Schedule: %v phase done\n", phase)
 }
 
-// assuming call always return true
+// should not assume rpc call() always return true
 func runAndRestartWorker(w string, m *Master, taskId int, dargs *DoTaskArgs) {
 	suc := call(w, "Worker.DoTask", dargs, new(struct{}))
 	if !suc {

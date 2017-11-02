@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"6.824/src/mapreduce"
+	"bufio"
+	"fmt"
 	"os"
 	"strconv"
-	"bufio"
 	"strings"
 	"unicode"
 )

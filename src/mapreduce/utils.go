@@ -1,8 +1,8 @@
 package mapreduce
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 const KVSEP = '~'

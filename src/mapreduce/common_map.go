@@ -1,19 +1,19 @@
 package mapreduce
 
 import (
-	"hash/fnv"
-	"os"
-	"log"
-	"io/ioutil"
 	"bufio"
 	"fmt"
+	"hash/fnv"
+	"io/ioutil"
+	"log"
+	"os"
 )
 
 // doMap does the job of a map worker: it reads one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
 // contents, and partitions the output into nReduce intermediate files.
 func doMap(
-	jobName string,    // the name of the MapReduce job
+	jobName string, // the name of the MapReduce job
 	mapTaskNumber int, // which map task this is
 	inFile string,
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)

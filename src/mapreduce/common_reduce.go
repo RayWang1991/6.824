@@ -1,12 +1,12 @@
 package mapreduce
 
 import (
-	"os"
-	"log"
-	"encoding/json"
-	"sort"
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"sort"
 )
 
 // doReduce does the job of a reduce worker: it reads the intermediate
@@ -14,9 +14,9 @@ import (
 // intermediate key/value pairs by key, calls the user-defined reduce function
 // (reduceF) for each key, and writes the output to disk.
 func doReduce(
-	jobName string,       // the name of the whole MapReduce job
+	jobName string, // the name of the whole MapReduce job
 	reduceTaskNumber int, // which reduce task this is
-	nMap int,             // the number of map tasks that were run ("M" in the paper)
+	nMap int, // the number of map tasks that were run ("M" in the paper)
 	reduceF func(key string, values []string) string,
 ) {
 	// TODO:
