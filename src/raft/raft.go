@@ -18,7 +18,11 @@ package raft
 //
 
 import "sync"
-import "6.824/src/labrpc"
+import (
+	"6.824/src/labrpc"
+	"bytes"
+	"encoding/gob"
+)
 
 // import "bytes"
 // import "encoding/gob"
@@ -38,16 +42,41 @@ type ApplyMsg struct {
 //
 // A Go object implementing a single Raft peer.
 //
+type RaftPeerRole int
+
+const (
+	TermKey                = 999
+	ActionKey              = 888
+	Follower  RaftPeerRole = iota
+	Candidate
+	Leader
+)
+
 type Raft struct {
 	mu        sync.Mutex
 	peers     []*labrpc.ClientEnd
 	persister *Persister
-	me        int // index into peers[]
+	me        int // index into peers[], self Id
+
+	// persistent states
+	role        RaftPeerRole  // role that raft think itself is
+	currentTerm int           // current term
+	votedFor    int           // candidate id(index) that vote for, -1 for null
+	logs        []map[int]int // logs containing term key and action key
+
+	// volatile states
+	commitIndex int // index of highest log entry known to be committed
+	lastApplied int // index of highest log entry applied to state machine
+
+	// volatile state on leaders
+	nextIndex  []int // record NextIndex of log entries for all node (all initialized to leader's last index + 1)
+	matchIndex []int // index of highest log entry known to be replicated on server
 
 	// Your data here.
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-
+	applyCh chan ApplyMsg
+	timeOut int // time out time in milsec
 }
 
 // return currentTerm and whether this server
@@ -57,6 +86,8 @@ func (rf *Raft) GetState() (int, bool) {
 	var term int
 	var isleader bool
 	// Your code here.
+	term = rf.currentTerm
+	isleader = rf.role == Leader
 	return term, isleader
 }
 
@@ -74,6 +105,13 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.yyy)
 	// data := w.Bytes()
 	// rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := gob.NewEncoder(w)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.logs)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 }
 
 //
@@ -86,6 +124,20 @@ func (rf *Raft) readPersist(data []byte) {
 	// d := gob.NewDecoder(r)
 	// d.Decode(&rf.xxx)
 	// d.Decode(&rf.yyy)
+	r := bytes.NewBuffer(data)
+	d := gob.NewDecoder(r)
+	err := d.Decode(&rf.currentTerm)
+	if err != nil {
+		DPrintf("error in decode \"currentTerm\"")
+	}
+	err = d.Decode(&rf.votedFor)
+	if err != nil {
+		DPrintf("error in decode \"votedFor\"")
+	}
+	err = d.Decode(&rf.logs)
+	if err != nil {
+		DPrintf("error in decode \"logs\"")
+	}
 }
 
 //
@@ -93,6 +145,10 @@ func (rf *Raft) readPersist(data []byte) {
 //
 type RequestVoteArgs struct {
 	// Your data here.
+	term         int
+	candidateId  int
+	lastLogIndex int // use to compare whose log is newer
+	lastLogTerm  int // use to compare whose log is newer
 }
 
 //
@@ -100,6 +156,16 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here.
+	term        int
+	voteGranted bool
+}
+
+// logic for comparing which log is newer(inclusive)
+func isNewerLog(aIdx, aTerm int, bIdx, bTerm int) bool {
+	if aTerm != bTerm {
+		return aTerm >= bTerm
+	}
+	return aIdx >= bIdx
 }
 
 //
@@ -107,6 +173,25 @@ type RequestVoteReply struct {
 //
 func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here.
+	meTerm := rf.currentTerm
+	canTerm := args.term
+	res := false
+	if canTerm >= meTerm {
+		if rf.votedFor < 0 || rf.votedFor == args.candidateId {
+			if len(rf.logs) == 0 {
+				res = true
+			} else {
+				lastlogIdx := len(rf.logs) - 1
+				log := rf.logs[lastlogIdx]
+				if isNewerLog(args.lastLogTerm, args.lastLogIndex, log[TermKey], lastlogIdx) {
+					res = true
+				}
+			}
+		}
+	}
+
+	reply.term = meTerm
+	reply.voteGranted = res
 }
 
 //
@@ -146,10 +231,18 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := -1
-	term := -1
-	isLeader := true
+	term := rf.currentTerm
+	if rf.role != Leader {
+		return -1, term, false
+	}
+	log := map[int]int{TermKey: rf.currentTerm, ActionKey: 99} // TODO, may use meaningful int for debug
+	rf.logs = append(rf.logs, log)
+	rf.sendRequestVote()
+	go func(){
+		rf.applyCh
+	}()
 
-	return index, term, isLeader
+	return index, term, true
 }
 
 //
@@ -160,6 +253,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 //
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
+	DPrintf("Kill peer %d\n", rf.me)
+	// TODO, rf debug string
 }
 
 //
@@ -175,15 +270,43 @@ func (rf *Raft) Kill() {
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
+	DPrintf("Make peers:%v me%v \n", peers, me)
 	rf := &Raft{}
 	rf.peers = peers
 	rf.persister = persister
 	rf.me = me
 
 	// Your initialization code here.
+	rf.logs = make([]map[int]int, 0, 128)
+	rf.currentTerm = -1
+	rf.role = Follower
+	rf.votedFor = -1
+	rf.commitIndex = -1
+	rf.lastApplied = -1
+	rf.matchIndex = make([]int, 0, 128)
+	rf.nextIndex = make([]int, 0, 128)
+	rf.applyCh = applyCh
+	rf.persist()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
 	return rf
+}
+
+type AppendEntriesArg struct {
+}
+
+type AppendEntriesReply struct {
+}
+
+// My Code goes here
+func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
+
+}
+
+// wrapper for append entries call
+func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArg, reply *AppendEntriesReply) bool {
+	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+	return ok
 }
