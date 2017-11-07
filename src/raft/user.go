@@ -139,7 +139,7 @@ func (rf *Raft) closeTicker() {
 	rf.ticker = nil
 }
 
-const HEARTBEAT_PERIOD = 10 * time.Millisecond
+const HEARTBEAT_PERIOD = 50 * time.Millisecond
 
 func (rf *Raft) startHeartBeatsPer() {
 	if rf.ticker == nil {
