@@ -7,10 +7,10 @@ package raft
 //
 // rf = Make(...)
 //   create a new Raft server.
-// rf.Start(command interface{}) (index, term, isleader)
+// rf.Start(command interface{}) (index, Term, isleader)
 //   start agreement on a new log entry
-// rf.GetState() (term, isLeader)
-//   ask a Raft for its current term, and whether it thinks it is leader
+// rf.GetState() (Term, isLeader)
+//   ask a Raft for its current Term, and whether it thinks it is leader
 // ApplyMsg
 //   each time a new entry is committed to the log, each Raft peer
 //   should send an ApplyMsg to the service (or tester)
@@ -22,6 +22,7 @@ import (
 	"6.824/src/labrpc"
 	"bytes"
 	"encoding/gob"
+	"time"
 )
 
 // import "bytes"
@@ -60,9 +61,9 @@ type Raft struct {
 
 	// persistent states
 	role        RaftPeerRole  // role that raft think itself is
-	currentTerm int           // current term
+	currentTerm int           // current Term
 	votedFor    int           // candidate id(index) that vote for, -1 for null
-	logs        []map[int]int // logs containing term key and action key
+	logs        []map[int]int // Logs containing Term key and action key
 
 	// volatile states
 	commitIndex int // index of highest log entry known to be committed
@@ -75,8 +76,11 @@ type Raft struct {
 	// Your data here.
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
+	timer  *time.Timer  // reuse time out timer for heart beat time out(follower) and election time out(candidate)?
+	ticker *time.Ticker // ticker for heart beat sender for leader
+	abort  chan struct{}
+
 	applyCh chan ApplyMsg
-	timeOut int // time out time in milsec
 }
 
 // return currentTerm and whether this server
@@ -136,7 +140,7 @@ func (rf *Raft) readPersist(data []byte) {
 	}
 	err = d.Decode(&rf.logs)
 	if err != nil {
-		DPrintf("error in decode \"logs\"")
+		DPrintf("error in decode \"Logs\"")
 	}
 }
 
@@ -145,10 +149,10 @@ func (rf *Raft) readPersist(data []byte) {
 //
 type RequestVoteArgs struct {
 	// Your data here.
-	term         int
-	candidateId  int
-	lastLogIndex int // use to compare whose log is newer
-	lastLogTerm  int // use to compare whose log is newer
+	Term         int
+	CandidateId  int
+	LastLogIndex int // use to compare whose log is newer
+	LastLogTerm  int // use to compare whose log is newer
 }
 
 //
@@ -156,8 +160,8 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here.
-	term        int
-	voteGranted bool
+	Term        int
+	VoteGranted bool
 }
 
 // logic for comparing which log is newer(inclusive)
@@ -174,24 +178,30 @@ func isNewerLog(aIdx, aTerm int, bIdx, bTerm int) bool {
 func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here.
 	meTerm := rf.currentTerm
-	canTerm := args.term
+	canTerm := args.Term
 	res := false
 	if canTerm >= meTerm {
-		if rf.votedFor < 0 || rf.votedFor == args.candidateId {
+		if canTerm > rf.currentTerm {
+			rf.currentTerm = args.Term
+			if rf.role != Follower {
+				rf.becomeFollower()
+			}
+		}
+		if rf.votedFor < 0 || rf.votedFor == args.CandidateId {
 			if len(rf.logs) == 0 {
 				res = true
 			} else {
 				lastlogIdx := len(rf.logs) - 1
 				log := rf.logs[lastlogIdx]
-				if isNewerLog(args.lastLogTerm, args.lastLogIndex, log[TermKey], lastlogIdx) {
+				if isNewerLog(args.LastLogTerm, args.LastLogIndex, log[TermKey], lastlogIdx) {
 					res = true
 				}
 			}
 		}
 	}
 
-	reply.term = meTerm
-	reply.voteGranted = res
+	reply.Term = meTerm
+	reply.VoteGranted = res
 }
 
 //
@@ -226,7 +236,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 //
 // the first return value is the index that the command will appear at
 // if it's ever committed. the second return value is the current
-// term. the third return value is true if this server believes it is
+// Term. the third return value is true if this server believes it is
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
@@ -237,9 +247,12 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 	log := map[int]int{TermKey: rf.currentTerm, ActionKey: 99} // TODO, may use meaningful int for debug
 	rf.logs = append(rf.logs, log)
-	rf.sendRequestVote()
-	go func(){
-		rf.applyCh
+
+	// send append entries to all followers (exclude self)
+	// copy the history if needed
+	//rf.sendRequestVote()
+	go func() {
+		//rf.applyCh
 	}()
 
 	return index, term, true
@@ -279,14 +292,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Your initialization code here.
 	rf.logs = make([]map[int]int, 0, 128)
 	rf.currentTerm = -1
-	rf.role = Follower
 	rf.votedFor = -1
 	rf.commitIndex = -1
 	rf.lastApplied = -1
 	rf.matchIndex = make([]int, 0, 128)
 	rf.nextIndex = make([]int, 0, 128)
-	rf.applyCh = applyCh
+
+	rf.applyCh = applyCh // TODO
 	rf.persist()
+
+	rf.timer = time.NewTimer(0)
+	rf.becomeFollower()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
@@ -295,13 +311,52 @@ func Make(peers []*labrpc.ClientEnd, me int,
 }
 
 type AppendEntriesArg struct {
+	Term         int // leader's Term
+	LeaderId     int
+	Logs         []map[int]int //Logs
+	PrevLogIndex int           // index of prev log
+	PrevLogTerm  int           // index of prev Term
+	LeaderCommit int           // leader's commitIndex
+}
+
+func (rf *Raft) PrevLogIndex() int {
+	return len(rf.logs) - 1
+}
+
+func (rf *Raft) PrevLogTerm() int {
+	if len(rf.logs) == 0 {
+		return -1
+	}
+	return rf.logs[len(rf.logs)-1][TermKey]
 }
 
 type AppendEntriesReply struct {
+	Me      int
+	Term    int // for leader to update itself's Term(role)
+	Success bool
 }
 
 // My Code goes here
 func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
+	if len(args.Logs) == 0 {
+		// heart beats
+		reply.Me = rf.me
+		reply.Term = rf.currentTerm
+		reply.Success = args.Term >= rf.currentTerm
+		if args.Term >= rf.currentTerm {
+			if args.Term > rf.currentTerm {
+				rf.currentTerm = args.Term
+				if rf.role != Follower {
+					rf.becomeFollower()
+				}
+			}
+			rf.resetHeartBeatTimeOut() // reset time out on Success or not
+		}
+		return
+	} else {
+		//TODO
+		panic("Unsupported yet!")
+	}
 
 }
 
