@@ -22,7 +22,6 @@ import (
 	"6.824/src/labrpc"
 	"bytes"
 	"encoding/gob"
-	"time"
 )
 
 // import "bytes"
@@ -45,6 +44,15 @@ type ApplyMsg struct {
 //
 type RaftPeerRole int
 
+type RaftState int
+
+const (
+	None               = iota
+	InElection
+	InRecvHeartBeat
+	InSendingHeartBeat
+)
+
 const (
 	TermKey                = 999
 	ActionKey              = 888
@@ -54,12 +62,12 @@ const (
 )
 
 type Raft struct {
-	mu        sync.Mutex // mutex for role
 	peers     []*labrpc.ClientEnd
 	persister *Persister
 	me        int // index into peers[], self Id
 
 	// persistent states
+	muRole      *sync.Mutex   // mutex for role
 	role        RaftPeerRole  // role that raft think itself is
 	currentTerm int           // current Term
 	votedFor    int           // candidate id(index) that vote for, -1 for null
@@ -69,6 +77,9 @@ type Raft struct {
 	commitIndex int // index of highest log entry known to be committed
 	lastApplied int // index of highest log entry applied to state machine
 
+	muSt  *sync.Mutex // mutex for role
+	state RaftState   // role that raft think itself is
+
 	// volatile state on leaders
 	nextIndex  []int // record NextIndex of log entries for all node (all initialized to leader's last index + 1)
 	matchIndex []int // index of highest log entry known to be replicated on server
@@ -76,9 +87,8 @@ type Raft struct {
 	// Your data here.
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	timer  *time.Timer  // reuse time out timer for heart beat time out(follower) and election time out(candidate)?
-	ticker *time.Ticker // ticker for heart beat sender for leader
-	abort  chan struct{}
+	abort      chan struct{} // abort chan, reuse, candidate for election,
+	heartBeart chan struct{} // heartBeat chan
 
 	applyCh chan ApplyMsg
 }
@@ -145,7 +155,9 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.peers = peers
 	rf.persister = persister
 	rf.me = me
-	rf.mu = sync.Mutex{}
+	rf.muRole = &sync.Mutex{}
+	rf.state = None
+	rf.muSt = &sync.Mutex{}
 
 	// Your initialization code here.
 	rf.logs = make([]map[int]int, 0, 128)
@@ -156,10 +168,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.matchIndex = make([]int, 0, 128)
 	rf.nextIndex = make([]int, 0, 128)
 
+	rf.abort = make(chan struct{})
+	rf.heartBeart = make(chan struct{})
 	rf.applyCh = applyCh // TODO
 	rf.persist()
 
-	rf.timer = time.NewTimer(0)
 	rf.becomeFollower()
 
 	// initialize from state persisted before a crash
@@ -176,7 +189,7 @@ func (rf *Raft) GetState() (int, bool) {
 	var isleader bool
 	// Your code here.
 	term = rf.currentTerm
-	isleader = rf.role == Leader
+	isleader = rf.IsLeader()
 	return term, isleader
 }
 
@@ -258,6 +271,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	meTerm := rf.currentTerm
 	canTerm := args.Term
 	res := false
+	DPrintf("CanTerm meTerm %d %d\n", canTerm, meTerm)
 	if canTerm >= meTerm {
 		if canTerm > rf.currentTerm {
 			DPrintf("CanTerm > meTerm %d %d\n", canTerm, meTerm)
@@ -335,11 +349,17 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 				DPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
 				rf.currentTerm = args.Term
 				DPrintf("Now term is %d for %d\n", rf.currentTerm, rf.me)
-				if rf.role != Follower {
+				DPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
+				if rf.GetRole() != Follower {
+					DPrintf("Send Abort %d\n", rf.me)
+					rf.abort <- struct{}{}
+					DPrintf("Abort Done %d\n", rf.me)
 					rf.becomeFollower()
 				}
 			}
-			rf.resetHeartBeatTimeOut() // reset time out on Success or not
+			if rf.GetUserState() == InRecvHeartBeat {
+				rf.heartBeart <- struct{}{}
+			}
 		}
 		return
 	} else {
