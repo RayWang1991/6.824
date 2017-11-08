@@ -55,7 +55,9 @@ import "sync"
 import "log"
 import "strings"
 import "math/rand"
-import "time"
+import (
+	"time"
+)
 
 type reqMsg struct {
 	endname  interface{} // name of sending ClientEnd
@@ -90,10 +92,13 @@ func (e *ClientEnd) Call(svcMeth string, args interface{}, reply interface{}) bo
 	qe.Encode(args)
 	req.args = qb.Bytes()
 
+	//fmt.Printf("Call enter %s\n", svcMeth)
 	e.ch <- req
+	//fmt.Println("Call Reply")
 
 	rep := <-req.replyCh
 	if rep.ok {
+		//fmt.Printf("reply %v\n",reply)
 		rb := bytes.NewBuffer(rep.reply)
 		rd := gob.NewDecoder(rb)
 		if err := rd.Decode(reply); err != nil {
@@ -406,7 +411,7 @@ func MakeService(rcvr interface{}) *Service {
 
 		if method.PkgPath != "" || // capitalized?
 			mtype.NumIn() != 3 ||
-			//mtype.In(1).Kind() != reflect.Ptr ||
+		//mtype.In(1).Kind() != reflect.Ptr ||
 			mtype.In(2).Kind() != reflect.Ptr ||
 			mtype.NumOut() != 0 {
 			// the method is not suitable for a handler
