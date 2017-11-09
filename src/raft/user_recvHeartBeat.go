@@ -22,7 +22,7 @@ func (rf *Raft) startRecvHeartBeats() {
 			rf.SetUserState(None)
 			canceled = true
 			timer.Stop()
-		case <-rf.heartBeart:
+		case <-rf.heartBeat:
 			// reset timer
 			if !timer.Stop() {
 				select {

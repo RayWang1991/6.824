@@ -21,10 +21,11 @@ func (rf *Raft) startSendHeartBeats() {
 		hasChange := false
 		for rpl := range rplch {
 			if !rpl.Success && rpl.Term > term && !hasChange {
-				// found higher term
-				DPrintf("Higher term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
+				// found higher Term
+				DPrintf("Higher Term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
 				hasChange = true
 				rf.currentTerm = term
+				rf.votedFor = -1
 				rf.abort <- struct{}{}
 			}
 		}
