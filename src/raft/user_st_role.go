@@ -18,7 +18,7 @@ func (rf *Raft) SetRole(r RaftPeerRole) {
 	rf.muRole.Unlock()
 }
 
-func (rf *Raft) IsBussy() bool {
+func (rf *Raft) IsBusy() bool {
 	state := rf.GetUserState()
 	return state == InElection || state == InRecvHeartBeat || state == InSendingHeartBeat
 }
@@ -38,21 +38,21 @@ func (rf *Raft) SetUserState(state RaftState) {
 
 // follower to candidate
 func (rf *Raft) becomeCandidate() {
-	DPrintf("Become Candidate %d term %d\n", rf.me, rf.currentTerm)
+	DPrintf("Become Candidate %d Term %d\n", rf.me, rf.currentTerm)
 	rf.SetRole(Candidate)
-	go rf.startElection()
+	rf.startElection()
 }
 
 // candidate to leader
 func (rf *Raft) becomeLeader() {
-	DPrintf("Become Leader %d term %d\n", rf.me, rf.currentTerm)
+	DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
 	rf.SetRole(Leader)
 	go rf.startSendHeartBeats()
 }
 
 // candidate / leader to follower
 func (rf *Raft) becomeFollower() {
-	DPrintf("Become Follower %d term %d\n", rf.me, rf.currentTerm)
+	DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
 	rf.SetRole(Follower)
 	go rf.startRecvHeartBeats()
 }
