@@ -22,7 +22,7 @@ func (rf *Raft) startSendHeartBeats() {
 		for rpl := range rplch {
 			if !rpl.Success && rpl.Term > term && !hasChange {
 				// found higher Term
-				DPrintf("Higher Term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
+				DHBPrintf("Higher Term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
 				hasChange = true
 				rf.currentTerm = term
 				rf.votedFor = -1
@@ -58,8 +58,8 @@ func (rf *Raft) sendHeartBeatsAll(replyCh chan *AppendEntriesReply, wg *sync.Wai
 		args := &AppendEntriesArg{
 			Term:         rf.currentTerm,
 			LeaderId:     rf.me,
-			PrevLogIndex: rf.PrevLogIndex(), // TODO , error should be from next index
-			PrevLogTerm:  rf.PrevLogTerm(),
+			PrevLogIndex: -1,
+			PrevLogTerm:  -1,
 			LeaderCommit: rf.commitIndex,
 		}
 		wg.Add(1)
