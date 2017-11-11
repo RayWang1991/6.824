@@ -15,15 +15,8 @@ func (rf *Raft) startElection() {
 	for electionFlag {
 		rf.currentTerm++
 		rf.votedFor = rf.me
-		DPrintf("Start Election for %d on Term %d\n", rf.me, rf.currentTerm)
-		lastLogTerm := rf.PrevLogTerm()
-		lastLogIndex := rf.PrevLogIndex()
-		args := &RequestVoteArgs{
-			Term:         rf.currentTerm,
-			CandidateId:  rf.me,
-			LastLogIndex: lastLogIndex,
-			LastLogTerm:  lastLogTerm,
-		}
+		DVotePrintf("Start Election for %d on Term %d\n", rf.me, rf.currentTerm)
+
 		wg := &sync.WaitGroup{}
 		replyCh := make(chan *RequestVoteReply)
 
@@ -31,8 +24,16 @@ func (rf *Raft) startElection() {
 			if i == rf.me {
 				continue
 			}
+			lastLogTerm := rf.PrevLogTermFor(i)
+			lastLogIndex := rf.PrevLogIndexFor(i)
+			args := &RequestVoteArgs{
+				Term:         rf.currentTerm,
+				CandidateId:  rf.me,
+				LastLogIndex: lastLogIndex,
+				LastLogTerm:  lastLogTerm,
+			}
 			wg.Add(1)
-			DPrintf("Send Vote Req to %d from %d on Term %d\n", i, rf.me, rf.currentTerm)
+			DVotePrintf("Send Vote Req to %d from %d on Term %d\n", i, rf.me, rf.currentTerm)
 			go rf.sendRequestVoteTo(i, args, replyCh, wg)
 		}
 
@@ -44,7 +45,7 @@ func (rf *Raft) startElection() {
 
 		waitFlag := true
 		succ := 1
-		if succ > len(rf.peers)/2 {
+		if rf.MostAgreed(succ) {
 			electionFlag = false
 			waitFlag = false
 			beLeader = true
@@ -54,9 +55,9 @@ func (rf *Raft) startElection() {
 			select {
 			case rpl := <-replyCh:
 				if rpl.VoteGranted {
-					DPrintf("Agree on asking Request Vote to %d from %d\n", rf.me, rpl.Me)
+					DVotePrintf("Agree on asking Request Vote to %d from %d\n", rf.me, rpl.Me)
 					succ++
-					if succ > len(rf.peers)/2 {
+					if rf.MostAgreed(succ) {
 						electionFlag = false
 						waitFlag = false
 						beLeader = true
@@ -79,94 +80,11 @@ func (rf *Raft) startElection() {
 				waitFlag = false
 			}
 		}
-		go dranRplCh(replyCh, rf.me, rf.currentTerm)
+		go dranRplChV(replyCh, rf.me, rf.currentTerm)
 	}
 	if beLeader {
 		rf.becomeLeader()
 	} else {
-		rf.becomeFollower()
-	}
-}
-
-func (rf *Raft) startElection1() {
-	rf.SetUserState(InElection)
-	rf.currentTerm++
-	rf.votedFor = rf.me
-
-	//TODO, time out for election
-	DPrintf("Start Election for %d on Term %d\n", rf.me, rf.currentTerm)
-	lastLogTerm := rf.PrevLogTerm()
-	lastLogIndex := rf.PrevLogIndex()
-	args := &RequestVoteArgs{
-		Term:         rf.currentTerm,
-		CandidateId:  rf.me,
-		LastLogIndex: lastLogIndex,
-		LastLogTerm:  lastLogTerm,
-	}
-
-	wg := &sync.WaitGroup{}
-	replyCh := make(chan *RequestVoteReply)
-	done := make(chan struct{})
-
-	for i := range rf.peers {
-		if i == rf.me {
-			continue
-		}
-		wg.Add(1)
-		DPrintf("Send Vote Req to %d from %d on Term %d\n", i, rf.me, rf.currentTerm)
-		go rf.sendRequestVoteTo(i, args, replyCh, wg)
-	}
-
-	// reply ch closer
-	go func(ch chan *RequestVoteReply) {
-		wg.Wait()
-		close(ch)
-	}(replyCh)
-
-	// reply msg receiver
-	go func(ch chan *RequestVoteReply, done chan struct{}) {
-		succ := 1
-		if succ > len(rf.peers)/2 {
-			go dranRplCh(replyCh, rf.me, rf.currentTerm)
-			done <- struct{}{}
-			return
-		}
-		for rpl := range ch {
-			if rpl.VoteGranted {
-				DPrintf("Agree on asking Request Vote to %d from %d\n", rf.me, rpl.Me)
-				succ++
-				if succ > len(rf.peers)/2 {
-					go dranRplCh(replyCh, rf.me, rf.currentTerm)
-					done <- struct{}{}
-					return
-				}
-			} else {
-				if rpl.Term > rf.currentTerm {
-					rf.currentTerm = rpl.Term
-					rf.votedFor = -1
-					go dranRplCh(replyCh, rf.me, rf.currentTerm)
-					rf.abort <- struct{}{}
-					return
-				}
-			}
-		}
-		// not got enough support from majority
-		DPrintf("Election Failed for %d on %d\n", rf.me, rf.currentTerm)
-	}(replyCh, done)
-
-	// waiting for done / time out / abort
-	select {
-	case <-time.After(randomTimeOut()):
-		// new election
-		// TODO, may use iteration instead of recursion
-		rf.startElection()
-	case <-done:
-		// win the election
-		rf.SetUserState(None)
-		rf.becomeLeader()
-	case <-rf.abort:
-		// found higher Term in reply
-		rf.SetUserState(None)
 		rf.becomeFollower()
 	}
 }
@@ -180,7 +98,7 @@ func (rf *Raft) sendRequestVoteTo(
 	ok := rf.sendRequestVote(server, *args, reply)
 	if !ok {
 		// TODO keep asking or election time out?
-		DPrintf("Send RequestVote For to %d from %d failed\n", server, rf.me)
+		DVotePrintf("Send RequestVote For to %d from %d failed\n", server, rf.me)
 		//ok = rf.sendRequestVote(server, *args, reply)
 	}
 	replyCh <- reply
