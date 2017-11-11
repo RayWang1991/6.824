@@ -1,9 +1,9 @@
 package raft
 
 func (rf *Raft) GetRole() RaftPeerRole {
-	rf.muRole.Lock()
+	rf.mu.Lock()
 	role := rf.role
-	rf.muRole.Unlock()
+	rf.mu.Unlock()
 	return role
 }
 
@@ -13,9 +13,9 @@ func (rf *Raft) IsLeader() bool {
 }
 
 func (rf *Raft) SetRole(r RaftPeerRole) {
-	rf.muRole.Lock()
+	rf.mu.Lock()
 	rf.role = r
-	rf.muRole.Unlock()
+	rf.mu.Unlock()
 }
 
 func (rf *Raft) IsBusy() bool {
@@ -24,16 +24,42 @@ func (rf *Raft) IsBusy() bool {
 }
 
 func (rf *Raft) GetUserState() RaftState {
-	rf.muSt.Lock()
+	rf.mu.Lock()
 	state := rf.state
-	rf.muSt.Unlock()
+	rf.mu.Unlock()
 	return state
 }
 
 func (rf *Raft) SetUserState(state RaftState) {
-	rf.muSt.Lock()
+	rf.mu.Lock()
 	rf.state = state
-	rf.muSt.Unlock()
+	rf.mu.Unlock()
+}
+
+func (rf *Raft) GetCommitIndex() int {
+	rf.mu.Lock()
+	ci := rf.commitIndex
+	rf.mu.Unlock()
+	return ci
+}
+
+func (rf *Raft) SetCommitIndex(idx int) {
+	rf.mu.Lock()
+	rf.commitIndex = idx
+	rf.mu.Lock()
+}
+
+func (rf *Raft) GetTerm() int {
+	rf.mu.Lock()
+	res := rf.currentTerm
+	rf.mu.Unlock()
+	return res
+}
+
+func (rf *Raft) SetTerm(t int) {
+	rf.mu.Lock()
+	rf.currentTerm = t
+	rf.mu.Unlock()
 }
 
 // follower to candidate
