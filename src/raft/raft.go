@@ -47,19 +47,22 @@ type RaftPeerRole int
 type RaftState int
 
 const (
-	None               = iota
+	None               RaftState = iota
 	InElection
 	InRecvHeartBeat
 	InSendingHeartBeat
 )
 
 const (
-	TermKey                = 999
-	ActionKey              = 888
 	Follower  RaftPeerRole = iota
 	Candidate
 	Leader
 )
+
+type LogEntry struct {
+	Term    int
+	Content interface{}
+}
 
 type Raft struct {
 	peers     []*labrpc.ClientEnd
@@ -67,18 +70,17 @@ type Raft struct {
 	me        int // index into peers[], self Id
 
 	// persistent states
-	muRole      *sync.Mutex   // mutex for role
-	role        RaftPeerRole  // role that raft think itself is
-	currentTerm int           // current Term
-	votedFor    int           // candidate id(index) that vote for, -1 for null
-	logs        []map[int]int // Logs containing Term key and action key
+	mu          *sync.Mutex
+	role        RaftPeerRole // role that raft think itself is
+	currentTerm int          // current Term
+	votedFor    int          // candidate id(index) that vote for, -1 for null
+	logs        []LogEntry   // Logs containing Term key and action key
 
 	// volatile states
-	commitIndex int // index of highest log entry known to be committed
+	commitIndex int // index of highest log entry known to be committed, 1 for first...
 	lastApplied int // index of highest log entry applied to state machine
 
-	muSt  *sync.Mutex // mutex for role
-	state RaftState   // role that raft think itself is
+	state RaftState // role that raft think itself is
 
 	// volatile state on leaders
 	nextIndex  []int // record NextIndex of log entries for all node (all initialized to leader's last index + 1)
@@ -87,8 +89,8 @@ type Raft struct {
 	// Your data here.
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	abort      chan struct{} // abort chan, reuse, candidate for election,
-	heartBeart chan struct{} // heartBeat chan
+	abort     chan struct{} // abort chan, reuse, candidate for election, leader for heartbeat sending, follower to receiving
+	heartBeat chan struct{} // heartBeat chan, for sending and receiving heart beat
 
 	applyCh chan ApplyMsg
 }
@@ -106,23 +108,34 @@ type Raft struct {
 // Term. the third return value is true if this server believes it is
 // the leader.
 //
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := rf.currentTerm
-	if rf.role != Leader {
-		return -1, term, false
+func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
+	term = rf.currentTerm
+	ind = rf.GetCommitIndex()
+	//ind = rf.commitIndex + 1
+
+	DLogPrintf(rf.CommitStr())
+	if !rf.IsLeader() {
+		// non leader
+		//DPrintf("Command on %d, no leader\n", rf.me)
+		DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+		return
 	}
-	log := map[int]int{TermKey: rf.currentTerm, ActionKey: 99} // TODO, may use meaningful int for debug
-	rf.logs = append(rf.logs, log)
+	DPrintf("Command on %d, Leader\n", rf.me)
+	//DPrintf(rf.DebugStr())
+	// leader
+	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
 
 	// send append entries to all followers (exclude self)
 	// copy the history if needed
 	//rf.sendRequestVote()
-	go func() {
-		//rf.applyCh
-	}()
 
-	return index, term, true
+	rf.commitIndex ++
+	rf.appendLogToOthers()
+	ind = rf.GetCommitIndex()
+
+	isL = true
+	DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+	return
 }
 
 //
@@ -134,6 +147,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) Kill() {
 	// Your code here, if desired.
 	DPrintf("Kill peer %d\n", rf.me)
+	DPrintf(rf.DebugStr())
 	// TODO, rf debug string
 }
 
@@ -155,21 +169,24 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.peers = peers
 	rf.persister = persister
 	rf.me = me
-	rf.muRole = &sync.Mutex{}
+	rf.mu = &sync.Mutex{}
 	rf.state = None
-	rf.muSt = &sync.Mutex{}
 
 	// Your initialization code here.
-	rf.logs = make([]map[int]int, 0, 128)
+	rf.logs = make([]LogEntry, 0, 128)
 	rf.currentTerm = -1
 	rf.votedFor = -1
-	rf.commitIndex = -1
-	rf.lastApplied = -1
-	rf.matchIndex = make([]int, 0, 128)
-	rf.nextIndex = make([]int, 0, 128)
+	rf.commitIndex = 0
+	rf.lastApplied = 0
+	rf.matchIndex = make([]int, len(peers), 16)
+	rf.nextIndex = make([]int, len(peers), 16)
+	for i := 0; i < len(peers); i++ {
+		rf.nextIndex[i] = -1
+		rf.matchIndex[i] = -1
+	}
 
 	rf.abort = make(chan struct{})
-	rf.heartBeart = make(chan struct{})
+	rf.heartBeat = make(chan struct{})
 	rf.applyCh = applyCh // TODO
 	rf.persist()
 
@@ -258,6 +275,7 @@ type RequestVoteArgs struct {
 //
 type RequestVoteReply struct {
 	// Your data here.
+	ReplyId     int
 	Me          int
 	Term        int
 	VoteGranted bool
@@ -271,30 +289,38 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	meTerm := rf.currentTerm
 	canTerm := args.Term
 	res := false
-	DPrintf("CanTerm meTerm %d %d\n", canTerm, meTerm)
+	DVotePrintf("Vote Request term:%d %d, sed,recv:%d %d\n", canTerm, meTerm, args.CandidateId, rf.me)
+	DVotePrintf("receiver: %s\n", rf.DebugStr())
 	if canTerm >= meTerm {
 		if canTerm > rf.currentTerm {
-			DPrintf("CanTerm > meTerm %d %d\n", canTerm, meTerm)
 			rf.currentTerm = args.Term
-			DPrintf("Now term is %d for %d\n", rf.currentTerm, rf.me)
-			if rf.role != Follower {
+			rf.votedFor = -1 // new term, update votedFor
+			DVotePrintf("term change %d > %d\n", canTerm, meTerm)
+			if rf.GetRole() != Follower {
+				if rf.IsBusy() {
+					rf.abort <- struct{}{}
+				}
 				rf.becomeFollower()
 			}
 		}
 		if rf.votedFor < 0 || rf.votedFor == args.CandidateId {
-			DPrintf("No voted\n")
 			if len(rf.logs) == 0 {
 				res = true
 			} else {
 				lastlogIdx := len(rf.logs) - 1
 				log := rf.logs[lastlogIdx]
-				if isNewerLog(args.LastLogTerm, args.LastLogIndex, log[TermKey], lastlogIdx) {
+				if isNewerLog(args.LastLogTerm, args.LastLogIndex, log.Term, lastlogIdx) {
 					res = true
 				}
 			}
 		}
 	}
-
+	// TODO cmp log latest
+	if res {
+		DVotePrintf("Win vote\n")
+	} else {
+		DVotePrintf("Lose vote\n")
+	}
 	reply.Me = rf.me
 	reply.Term = meTerm
 	reply.VoteGranted = res
@@ -323,15 +349,17 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 }
 
 type AppendEntriesArg struct {
-	Term         int // leader's Term
-	LeaderId     int
-	Logs         []map[int]int //Logs
-	PrevLogIndex int           // index of prev log
-	PrevLogTerm  int           // index of prev Term
-	LeaderCommit int           // leader's commitIndex
+	Id           int        // arg id
+	Term         int        // leader's Term
+	LeaderId     int        // Leader Id
+	Logs         []LogEntry // Logs
+	PrevLogIndex int        // index of prev log
+	PrevLogTerm  int        // index of prev Term
+	LeaderCommit int        // leader's commitIndex
 }
 
 type AppendEntriesReply struct {
+	Id      int
 	Me      int
 	Term    int // for leader to update itself's Term(role)
 	Success bool
@@ -339,34 +367,80 @@ type AppendEntriesReply struct {
 
 // My Code goes here
 func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
-	if len(args.Logs) == 0 {
-		// heart beats
-		reply.Me = rf.me
-		reply.Term = rf.currentTerm
-		reply.Success = args.Term >= rf.currentTerm
-		if args.Term >= rf.currentTerm {
-			if args.Term > rf.currentTerm {
-				DPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
-				rf.currentTerm = args.Term
-				DPrintf("Now term is %d for %d\n", rf.currentTerm, rf.me)
-				DPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
-				if rf.GetRole() != Follower {
-					DPrintf("Send Abort %d\n", rf.me)
-					rf.abort <- struct{}{}
-					DPrintf("Abort Done %d\n", rf.me)
-					rf.becomeFollower()
-				}
-			}
-			if rf.GetUserState() == InRecvHeartBeat {
-				rf.heartBeart <- struct{}{}
-			}
-		}
+	reply.Me = rf.me
+	reply.Term = rf.currentTerm
+	reply.Id = args.Id
+	if args.Term < rf.currentTerm {
+		reply.Success = false
 		return
-	} else {
-		//TODO
-		panic("Unsupported yet!")
+	} else if args.Term > rf.currentTerm {
+		DHBPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
+		rf.currentTerm = args.Term
+		rf.votedFor = -1
+		DHBPrintf("Now Term is %d for %d in Append Entries\n", rf.currentTerm, rf.me)
+		DHBPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
+		if rf.GetRole() != Follower {
+			if rf.IsBusy() {
+				DHBPrintf("Send Abort %d\n", rf.me)
+				rf.abort <- struct{}{}
+				DHBPrintf("Abort Done %d\n", rf.me)
+			}
+			rf.becomeFollower()
+		}
 	}
 
+	if len(args.Logs) == 0 {
+		// Heart beat
+		if rf.GetUserState() == InRecvHeartBeat {
+			rf.heartBeat <- struct{}{}
+		}
+		return
+	}
+
+	DLogPrintf("AE Id %d recv:%d args:%s\n", args.Id, rf.me, args.DebugStr())
+	// log append
+	if args.PrevLogIndex >= len(rf.logs) {
+		DLogPrintf("Exceeds PreLogIndex %d > %d\n", args.PrevLogIndex, len(rf.logs))
+		reply.Success = false
+		return
+	}
+
+	if args.PrevLogIndex >= 0 && args.PrevLogTerm != rf.logs[args.PrevLogIndex].Term {
+		DLogPrintf("Term Mismatch %d != %d\n", args.PrevLogTerm, rf.logs[args.PrevLogIndex].Term)
+		reply.Success = false
+		return
+	}
+
+	// match, copy(and may overwrite) logs
+	rf.logs = rf.logs[:args.PrevLogIndex+1] // prev log index may be -1
+	for _, log := range args.Logs {
+		rf.logs = append(rf.logs, log)
+	}
+
+	rf.mu.Lock()
+	if rf.commitIndex < args.LeaderCommit {
+		rf.commitIndex = args.LeaderCommit
+		if rf.commitIndex > len(rf.logs) {
+			rf.commitIndex = len(rf.logs)
+		}
+	}
+	rf.mu.Unlock()
+
+	reply.Success = true
+
+	DLogPrintf("Recv %d Server Commit:%d self Commit:%d\n", rf.me, args.LeaderCommit, rf.commitIndex)
+	for rf.commitIndex > rf.lastApplied {
+		rf.lastApplied++
+		ind := rf.lastApplied
+		msg := ApplyMsg{
+			Index:   ind,
+			Command: rf.logs[ind-1].Content,
+		}
+		//TODO
+		rf.applyCh <- msg
+		DLogPrintf("Apply %v ind %d server %d\n", msg.Command, msg.Index, rf.me)
+	}
+	DLogPrintf("ON Reply %d commitIdx is %d\n", args.Id, rf.GetCommitIndex())
 }
 
 // wrapper for append entries call
