@@ -120,7 +120,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 		DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
 		return
 	}
-	DPrintf("Command on %d, Leader\n", rf.me)
+	DPrintf("Command %v on %d, Leader\n", command, rf.me)
 	//DPrintf(rf.DebugStr())
 	// leader
 	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
@@ -129,11 +129,14 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	// copy the history if needed
 	//rf.sendRequestVote()
 
-	rf.commitIndex ++
-	rf.appendLogToOthers()
+	rf.syncLogsToOthers()
+	DLogPrintf("Sync Logs Done matches:%v\n",rf.matchIndex)
+	rf.syncApplyMsgs()
 	ind = rf.GetCommitIndex()
+	isL = rf.IsLeader()
+	term = rf.currentTerm
 
-	isL = true
+
 	DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
 	return
 }
@@ -190,7 +193,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.applyCh = applyCh // TODO
 	rf.persist()
 
-	rf.becomeFollower()
+	rf.SetRole(Follower)
+	go rf.startRecvHeartBeats()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
@@ -300,6 +304,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 				if rf.IsBusy() {
 					rf.abort <- struct{}{}
 				}
+				DHBPrintf("RF BF Vote Rcv\n")
 				rf.becomeFollower()
 			}
 		}
@@ -317,9 +322,10 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	// TODO cmp log latest
 	if res {
-		DVotePrintf("Win vote\n")
+		DVotePrintf("Win vote recv %d to %d\n", rf.me, args.CandidateId)
 	} else {
-		DVotePrintf("Lose vote\n")
+		DVotePrintf("Lose vote recv %d to %d vote for %d send log indx %d term %d recv log %v\n",
+			rf.me, args.CandidateId, rf.votedFor, args.LastLogIndex, args.LastLogTerm, rf.logs)
 	}
 	reply.Me = rf.me
 	reply.Term = meTerm
@@ -359,7 +365,7 @@ type AppendEntriesArg struct {
 }
 
 type AppendEntriesReply struct {
-	Id      int
+	Req     *AppendEntriesArg
 	Me      int
 	Term    int // for leader to update itself's Term(role)
 	Success bool
@@ -369,7 +375,7 @@ type AppendEntriesReply struct {
 func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
 	reply.Me = rf.me
 	reply.Term = rf.currentTerm
-	reply.Id = args.Id
+	reply.Req = &args
 	if args.Term < rf.currentTerm {
 		reply.Success = false
 		return
@@ -385,12 +391,14 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 				rf.abort <- struct{}{}
 				DHBPrintf("Abort Done %d\n", rf.me)
 			}
+			DHBPrintf("RF BF AE\n")
 			rf.becomeFollower()
 		}
 	}
 
 	if len(args.Logs) == 0 {
 		// Heart beat
+		DHBPrintf("Recv HB Id %d from %d to %d\n", args.Id, args.LeaderId, rf.me)
 		if rf.GetUserState() == InRecvHeartBeat {
 			rf.heartBeat <- struct{}{}
 		}
@@ -420,26 +428,19 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 	rf.mu.Lock()
 	if rf.commitIndex < args.LeaderCommit {
 		rf.commitIndex = args.LeaderCommit
-		if rf.commitIndex > len(rf.logs) {
-			rf.commitIndex = len(rf.logs)
-		}
+	}
+	if rf.commitIndex > len(rf.logs) {
+		rf.commitIndex = len(rf.logs)
 	}
 	rf.mu.Unlock()
 
 	reply.Success = true
 
-	DLogPrintf("Recv %d Server Commit:%d self Commit:%d\n", rf.me, args.LeaderCommit, rf.commitIndex)
-	for rf.commitIndex > rf.lastApplied {
-		rf.lastApplied++
-		ind := rf.lastApplied
-		msg := ApplyMsg{
-			Index:   ind,
-			Command: rf.logs[ind-1].Content,
-		}
-		//TODO
-		rf.applyCh <- msg
-		DLogPrintf("Apply %v ind %d server %d\n", msg.Command, msg.Index, rf.me)
-	}
+	DLogPrintf("Recv %d Server Commit:%d self Commit:%d lastApply:%d self log %v\n",
+		rf.me, args.LeaderCommit, rf.commitIndex, rf.lastApplied, rf.logs)
+
+	rf.syncApplyMsgs()
+
 	DLogPrintf("ON Reply %d commitIdx is %d\n", args.Id, rf.GetCommitIndex())
 }
 
@@ -448,3 +449,4 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArg, reply *Appe
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	return ok
 }
+
