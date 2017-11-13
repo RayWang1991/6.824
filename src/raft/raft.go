@@ -124,6 +124,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	//DPrintf(rf.DebugStr())
 	// leader
 	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
+	ind = len(rf.logs)
 
 	// send append entries to all followers (exclude self)
 	// copy the history if needed
@@ -136,7 +137,6 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	} else {
 		DLogPrintf("Sync Logs [Fail] matches:%v\n", rf.matchIndex)
 	}
-	ind = len(rf.logs)
 	isL = rf.IsLeader()
 	term = rf.currentTerm
 	DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
