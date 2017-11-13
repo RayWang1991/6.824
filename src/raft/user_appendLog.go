@@ -21,8 +21,9 @@ func getId() int {
 // broadcast AE RPC to all followers, in order to copy logs to them
 // once the majority says YES
 // leader update its commit index to the last
+// return value: true for successfully got majority's agreement
 
-func (rf *Raft) syncLogsToOthers() {
+func (rf *Raft) syncLogsToOthers() bool {
 	wg := &sync.WaitGroup{}
 	replyCh := make(chan *AppendEntriesReply)
 	DLogPrintf("Sender %d Phase 1 SyncLogs %v\n", rf.me, rf.logs)
@@ -34,9 +35,11 @@ func (rf *Raft) syncLogsToOthers() {
 		go rf.sendAppendLogsTo(i, replyCh, wg)
 	}
 
-	suc := 1
+	suc := 1  // know sayed YES
+	errN := 0 // know err (saying no)
 	//done := uint(1 << uint(rf.me)) // bit map for recording succ
 	foundHigherT := false
+	fail := false
 	for !rf.MostAgreed(suc) {
 		rpl := <-replyCh
 		if rpl.Success {
@@ -45,6 +48,12 @@ func (rf *Raft) syncLogsToOthers() {
 			// update matches
 			rf.matchIndex[rpl.Me] = len(rf.logs) - 1
 			suc++
+		} else if rpl.Error {
+			errN ++
+			if errN > len(rf.peers) / 2 {
+				fail = true
+				break
+			}
 		} else if rpl.Term > rpl.Req.Term {
 			DLogPrintf("Found Higher Term in Reply %d > %d for ae Send %d Recv %d\n",
 				rpl.Term, rf.currentTerm, rf.me, rpl.Me)
@@ -52,7 +61,9 @@ func (rf *Raft) syncLogsToOthers() {
 		} else {
 			to := rpl.Me
 			rf.mu.Lock()
-			rf.nextIndex[to]--
+			if rf.nextIndex[to] >= 0 { // may be error in reply (disconnection)
+				rf.nextIndex[to]--
+			}
 			rf.mu.Unlock()
 			//DLogPrintf("-- %d, now is %d\n", rpl.Me, rf.nextIndex[to])
 			wg.Add(1)
@@ -66,6 +77,9 @@ func (rf *Raft) syncLogsToOthers() {
 		go dranRplChA(replyCh, rf.me, rf.currentTerm)
 		rf.abort <- struct{}{}
 		rf.becomeFollower()
+		return false
+	} else if fail {
+		return false
 	} else {
 		// Success routine::
 		// agreed for most server, send AE to rest of them in another goroutine
@@ -81,7 +95,7 @@ func (rf *Raft) syncLogsToOthers() {
 				notified := false
 				for rf.IsLeader() && !notified {
 					args := rf.aeArg(i)
-					reply := &AppendEntriesReply{Term: -1}
+					reply := &AppendEntriesReply{Term: -1, Req: args}
 					ok := rf.sendAppendEntries(i, *args, reply)
 					if !ok {
 						DPrintf("send AppendEntries to %d failed\n", i)
@@ -90,10 +104,14 @@ func (rf *Raft) syncLogsToOthers() {
 					if reply.Success {
 						DLogPrintf("Id %d Committed for %d\n", reply.Req.Id, reply.Me)
 						notified = true
+					} else if reply.Error {
+
 					} else {
 						if reply.Req.Term >= reply.Term {
 							rf.mu.Lock()
-							rf.nextIndex[i]--
+							if rf.nextIndex[i] >= 0 { // may be error in reply (disconnection)
+								rf.nextIndex[i]--
+							}
 							rf.mu.Unlock()
 							// resend
 						} else {
@@ -106,6 +124,7 @@ func (rf *Raft) syncLogsToOthers() {
 				}
 			}(rf, i)
 		}
+		return true
 	}
 }
 
@@ -127,11 +146,12 @@ func (rf *Raft) sendAppendLogsTo(
 	replyCh chan *AppendEntriesReply,
 	wg *sync.WaitGroup) {
 	args := rf.aeArg(server)
-	reply := &AppendEntriesReply{Term: -1}
+	reply := &AppendEntriesReply{Term: -1, Req: args}
 	//DPrintf("send heart beat to %d from %d\n", server, rf.me)
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
-		//DPrintf("send AppendEntries to %d failed\n", server)
+		DPrintf("send AppendEntries to %d failed\n", server)
+		reply.Error = true
 	}
 	replyCh <- reply
 }
