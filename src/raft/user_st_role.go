@@ -78,8 +78,10 @@ func (rf *Raft) becomeLeader() {
 		rf.SetRole(Leader)
 		go rf.startSendHeartBeats()
 		if len(rf.logs) > 0 {
-			rf.syncLogsToOthers()
-			rf.syncApplyMsgs()
+			ok := rf.syncLogsToOthers() // TODO
+			if ok {
+				rf.syncApplyMsgs()
+			}
 		}
 	}
 }
