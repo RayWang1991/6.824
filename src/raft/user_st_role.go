@@ -64,23 +64,33 @@ func (rf *Raft) SetTerm(t int) {
 
 // follower to candidate
 func (rf *Raft) becomeCandidate() {
-	DPrintf("Become Candidate %d Term %d\n", rf.me, rf.currentTerm)
-	rf.SetRole(Candidate)
-	rf.startElection()
+	if rf.GetRole() != Candidate {
+		DPrintf("Become Candidate %d Term %d\n", rf.me, rf.currentTerm)
+		rf.SetRole(Candidate)
+		rf.startElection()
+	}
 }
 
 // candidate to leader
 func (rf *Raft) becomeLeader() {
-	DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
-	rf.SetRole(Leader)
-	go rf.startSendHeartBeats()
+	if rf.GetRole() != Leader {
+		DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
+		rf.SetRole(Leader)
+		go rf.startSendHeartBeats()
+		if len(rf.logs) > 0 {
+			rf.syncLogsToOthers()
+			rf.syncApplyMsgs()
+		}
+	}
 }
 
 // candidate / leader to follower
 func (rf *Raft) becomeFollower() {
-	DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
-	rf.SetRole(Follower)
-	go rf.startRecvHeartBeats()
+	if rf.GetRole() != Follower {
+		DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
+		rf.SetRole(Follower)
+		go rf.startRecvHeartBeats()
+	}
 }
 
 // reset before change role from candidate to others

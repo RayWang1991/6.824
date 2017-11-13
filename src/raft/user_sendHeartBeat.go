@@ -8,6 +8,7 @@ import (
 const HEARTBEAT_PERIOD = 50 * time.Millisecond
 
 func (rf *Raft) startSendHeartBeats() {
+	DHBPrintf("Start Send HB rf %d\n", rf.me)
 	rf.SetUserState(InSendingHeartBeat)
 	replyCh := make(chan *AppendEntriesReply)
 	wg := &sync.WaitGroup{}
@@ -34,7 +35,7 @@ func (rf *Raft) startSendHeartBeats() {
 	for !canceled {
 		select {
 		case <-rf.abort:
-			//DPrintf("HB recv abort msg %d\n", rf.me)
+			DPrintf("HB send abort!!! msg %d\n", rf.me)
 			rf.SetUserState(None)
 			rf.becomeFollower()
 			canceled = true
@@ -43,6 +44,7 @@ func (rf *Raft) startSendHeartBeats() {
 		}
 	}
 
+	DHBPrintf("End Send HB rf %d\n", rf.me)
 	// closer for reply channel
 	go func() {
 		wg.Wait()
@@ -74,7 +76,7 @@ func (rf *Raft) sendHeartBeatsTo(
 	replyCh chan *AppendEntriesReply,
 	wg *sync.WaitGroup) {
 	reply := &AppendEntriesReply{Term: -1}
-	//DPrintf("send heart beat to %d from %d\n", server, rf.me)
+	DHBPrintf("Send heart beat to %d from %d\n", server, rf.me)
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
 		//DPrintf("send AppendEntries to %d failed\n", server)

@@ -22,11 +22,16 @@ func isNewerLog(aIdx, aTerm int, bIdx, bTerm int) bool {
 
 // TODO
 func (rf *Raft) PrevLogIndexFor(sever int) int {
-	return rf.nextIndex[sever]
+	rf.mu.Lock()
+	ind := rf.nextIndex[sever]
+	rf.mu.Unlock()
+	return ind
 }
 
 func (rf *Raft) PrevLogTermFor(server int) int {
+	rf.mu.Lock()
 	ind := rf.nextIndex[server]
+	rf.mu.Unlock()
 	if ind < 0 {
 		return ind
 	}
