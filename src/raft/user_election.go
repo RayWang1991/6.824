@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"sync"
 	"time"
 )
 
@@ -17,32 +16,34 @@ func (rf *Raft) startElection() {
 		rf.votedFor = rf.me
 		DVotePrintf("Start Election for %d on Term %d\n", rf.me, rf.currentTerm)
 
-		wg := &sync.WaitGroup{}
 		replyCh := make(chan *RequestVoteReply)
 
 		for i := range rf.peers {
 			if i == rf.me {
 				continue
 			}
-			lastLogTerm := rf.PrevLogTermFor(i)
-			lastLogIndex := rf.PrevLogIndexFor(i)
+			lastLogT := -1
+			lastLogI := len(rf.logs) - 1
+			if lastLogI >= 0 {
+				lastLogT = rf.logs[lastLogI].Term
+			}
 			args := &RequestVoteArgs{
 				Term:         rf.currentTerm,
 				CandidateId:  rf.me,
-				LastLogIndex: lastLogIndex,
-				LastLogTerm:  lastLogTerm,
+				LastLogIndex: lastLogI,
+				LastLogTerm:  lastLogT,
 			}
-			wg.Add(1)
 			DVotePrintf("Send Vote Req to %d from %d on Term %d\n", i, rf.me, rf.currentTerm)
-			go rf.sendRequestVoteTo(i, args, replyCh, wg)
+			go rf.sendRequestVoteTo(i, args, replyCh)
 		}
 
 		// reply ch closer
-		go func(ch chan *RequestVoteReply) {
-			wg.Wait()
-			close(ch)
-		}(replyCh)
+		//go func(ch chan *RequestVoteReply) {
+		//	wg.Wait()
+		//	close(ch)
+		//}(replyCh)
 
+		// TODO, no
 		waitFlag := true
 		succ := 1
 		if rf.MostAgreed(succ) {
@@ -92,8 +93,7 @@ func (rf *Raft) startElection() {
 func (rf *Raft) sendRequestVoteTo(
 	server int,
 	args *RequestVoteArgs,
-	replyCh chan *RequestVoteReply,
-	wg *sync.WaitGroup) {
+	replyCh chan *RequestVoteReply) {
 	reply := &RequestVoteReply{Term: -1, VoteGranted: false}
 	ok := rf.sendRequestVote(server, *args, reply)
 	if !ok {
@@ -102,5 +102,4 @@ func (rf *Raft) sendRequestVoteTo(
 		//ok = rf.sendRequestVote(server, *args, reply)
 	}
 	replyCh <- reply
-	wg.Done()
 }
