@@ -120,7 +120,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 		DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
 		return
 	}
-	DPrintf("Command %v on %d, Leader\n", command, rf.me)
+	DPrintf("[Command] %v on %d, Leader\n", command, rf.me)
 	//DPrintf(rf.DebugStr())
 	// leader
 	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
@@ -129,15 +129,18 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	// copy the history if needed
 	//rf.sendRequestVote()
 
-	rf.syncLogsToOthers()
-	DLogPrintf("Sync Logs Done matches:%v\n",rf.matchIndex)
-	rf.syncApplyMsgs()
-	ind = rf.GetCommitIndex()
+	ok := rf.syncLogsToOthers()
+	if ok {
+		DLogPrintf("Sync Logs [Succeed] matches:%v\n", rf.matchIndex)
+		rf.syncApplyMsgs()
+	} else {
+		DLogPrintf("Sync Logs [Fail] matches:%v\n", rf.matchIndex)
+	}
+	ind = len(rf.logs)
 	isL = rf.IsLeader()
 	term = rf.currentTerm
-
-
 	DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+
 	return
 }
 
@@ -369,13 +372,13 @@ type AppendEntriesReply struct {
 	Me      int
 	Term    int // for leader to update itself's Term(role)
 	Success bool
+	Error   bool // connection error or others, here just use boolean
 }
 
 // My Code goes here
 func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
 	reply.Me = rf.me
 	reply.Term = rf.currentTerm
-	reply.Req = &args
 	if args.Term < rf.currentTerm {
 		reply.Success = false
 		return
@@ -449,4 +452,3 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArg, reply *Appe
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	return ok
 }
-
