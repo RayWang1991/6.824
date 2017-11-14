@@ -32,6 +32,7 @@ func (rf *Raft) syncLogsToOthers() bool {
 			continue
 		}
 		rf.nextIndex[i] = len(rf.logs) - 1 // ? every time ?
+		wg.Add(1)
 		go rf.sendAppendLogsTo(i, replyCh, wg)
 	}
 
@@ -43,14 +44,14 @@ func (rf *Raft) syncLogsToOthers() bool {
 	for !rf.MostAgreed(suc) {
 		rpl := <-replyCh
 		if rpl.Success {
-			DLogPrintf("Succ %d \n", rpl.Me)
+			DLogPrintf("Succ for server %d \n", rpl.Me)
 			//done |= 1 << uint(rpl.Me)
 			// update matches
 			rf.matchIndex[rpl.Me] = len(rf.logs) - 1
 			suc++
 		} else if rpl.Error {
 			errN ++
-			if errN > len(rf.peers) / 2 {
+			if errN > len(rf.peers)/2 {
 				fail = true
 				break
 			}
@@ -58,6 +59,7 @@ func (rf *Raft) syncLogsToOthers() bool {
 			DLogPrintf("Found Higher Term in Reply %d > %d for ae Send %d Recv %d\n",
 				rpl.Term, rf.currentTerm, rf.me, rpl.Me)
 			foundHigherT = true
+			break
 		} else {
 			to := rpl.Me
 			rf.mu.Lock()
@@ -75,7 +77,14 @@ func (rf *Raft) syncLogsToOthers() bool {
 		// finding a higher term
 		// notify all,
 		go dranRplChA(replyCh, rf.me, rf.currentTerm)
-		rf.abort <- struct{}{}
+		go func(ch chan *AppendEntriesReply, wg *sync.WaitGroup) {
+			wg.Wait()
+			close(ch)
+		}(replyCh, wg)
+		if rf.IsBusy() {
+			rf.abort <- struct{}{}
+		}
+		DPrintf("[ABORT HB]\n")
 		rf.becomeFollower()
 		return false
 	} else if fail {
@@ -90,7 +99,7 @@ func (rf *Raft) syncLogsToOthers() bool {
 			if i == rf.me {
 				continue
 			}
-			DLogPrintf("Resend commit ae index %d to %d\n", rf.commitIndex, i)
+			DLogPrintf("Resend commit ae index %d sender %d to %d\n", rf.commitIndex, rf.me, i)
 			go func(rf *Raft, i int) {
 				notified := false
 				for rf.IsLeader() && !notified {
@@ -98,14 +107,14 @@ func (rf *Raft) syncLogsToOthers() bool {
 					reply := &AppendEntriesReply{Term: -1, Req: args}
 					ok := rf.sendAppendEntries(i, *args, reply)
 					if !ok {
-						DPrintf("send AppendEntries to %d failed\n", i)
+						DPrintf("send AppendEntries sender %d to %d Failed!\n", rf.me, i)
 						return
 					}
 					if reply.Success {
-						DLogPrintf("Id %d Committed for %d\n", reply.Req.Id, reply.Me)
+						DLogPrintf("Id %d Committed sender %d to %d\n", reply.Req.Id, rf.me, reply.Me)
 						notified = true
 					} else if reply.Error {
-
+						DLogPrintf("Rpl Id %d Error sender %d to %d %d\n", reply.Req.Id, rf.me, reply.Me)
 					} else {
 						if reply.Req.Term >= reply.Term {
 							rf.mu.Lock()
@@ -150,7 +159,7 @@ func (rf *Raft) sendAppendLogsTo(
 	//DPrintf("send heart beat to %d from %d\n", server, rf.me)
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
-		DPrintf("send AppendEntries to %d failed\n", server)
+		DPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
 		reply.Error = true
 	}
 	replyCh <- reply
@@ -166,7 +175,6 @@ func (rf *Raft) syncApplyMsgs() {
 		if ind <= 0 {
 			continue
 		}
-
 		msg := ApplyMsg{
 			Index:   ind,
 			Command: rf.logs[ind-1].Content,
