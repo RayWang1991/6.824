@@ -13,9 +13,9 @@ func randomTimeOut() time.Duration {
 }
 
 // logic for comparing which log is newer(inclusive)
-func isNewerLog(aIdx, aTerm int, bIdx, bTerm int) bool {
+func isNewerLog(aTerm, aIdx int, bTerm, bIdx int) bool {
 	if aTerm != bTerm {
-		return aTerm >= bTerm
+		return aTerm > bTerm
 	}
 	return aIdx >= bIdx
 }
