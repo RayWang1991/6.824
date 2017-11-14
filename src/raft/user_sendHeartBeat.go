@@ -28,6 +28,15 @@ func (rf *Raft) startSendHeartBeats() {
 				rf.currentTerm = term
 				rf.votedFor = -1
 				rf.abort <- struct{}{}
+			} else if rpl.Term < term { // new comer, lost before
+				//TODO
+				//DPrintf("[Term] lost commer %d term %d < %d leader %d\n", rpl.Me, rpl.Term, term, rf.me)
+				//if len(rf.logs) > 0 {
+				//	ok := rf.syncLogsToOthers() // TODO
+				//	if ok {
+				//		rf.syncApplyMsgs()
+				//	}
+				//}
 			}
 		}
 	}(replyCh, rf.currentTerm, rf.me)

@@ -117,7 +117,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	if !rf.IsLeader() {
 		// non leader
 		//DPrintf("Command on %d, no leader\n", rf.me)
-		DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+		DLogPrintf("[Return Start] Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
 		return
 	}
 	DPrintf("[Command] %v on %d, Leader\n", command, rf.me)
@@ -139,7 +139,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	}
 	isL = rf.IsLeader()
 	term = rf.currentTerm
-	DLogPrintf("Return Start Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+	DLogPrintf("[Return Start] Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
 
 	return
 }
