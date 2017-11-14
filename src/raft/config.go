@@ -81,7 +81,7 @@ func (cfg *config) crash1(i int) {
 
 	// a fresh persister, in case old instance
 	// continues to update the Persister.
-	// but copy old persister's content so that we always
+	// but copy old persister's Content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {
 		cfg.saved[i] = cfg.saved[i].Copy()
@@ -130,7 +130,7 @@ func (cfg *config) start1(i int) {
 
 	// a fresh persister, so old instance doesn't overwrite
 	// new instance's persisted state.
-	// but copy old persister's content so that we always
+	// but copy old persister's Content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {
 		cfg.saved[i] = cfg.saved[i].Copy()
@@ -161,13 +161,15 @@ func (cfg *config) start1(i int) {
 				cfg.mu.Unlock()
 
 				if m.Index > 1 && prevok == false {
-					err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.Index)
+					err_msg = fmt.Sprintf("%v server %v apply out of order %v",cfg.logs[i], i, m.Index)
 				}
 			} else {
 				err_msg = fmt.Sprintf("committed command %v is not an int", m.Command)
 			}
 
 			if err_msg != "" {
+				// debug
+				cfg.cleanup()
 				log.Fatalf("apply error: %v\n", err_msg)
 				cfg.applyErr[i] = err_msg
 				// keep reading after error so that Raft doesn't block
@@ -199,7 +201,7 @@ func (cfg *config) cleanup() {
 
 // attach server i to the net.
 func (cfg *config) connect(i int) {
-	 fmt.Printf("connect(%d)\n", i)
+	fmt.Printf("connect(%d)\n", i)
 
 	cfg.connected[i] = true
 
@@ -222,7 +224,7 @@ func (cfg *config) connect(i int) {
 
 // detach server i from the net.
 func (cfg *config) disconnect(i int) {
-	 fmt.Printf("disconnect(%d)\n", i)
+	fmt.Printf("disconnect(%d)\n", i)
 
 	cfg.connected[i] = false
 
@@ -296,7 +298,7 @@ func (cfg *config) checkTerms() int {
 			if term == -1 {
 				term = xterm
 			} else if term != xterm {
-				cfg.t.Fatalf("servers disagree on Term X %d t %d",xterm,term)
+				cfg.t.Fatalf("servers disagree on Term X %d t %d", xterm, term)
 			}
 		}
 	}
@@ -328,7 +330,9 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 		cmd1, ok := cfg.logs[i][index]
 		cfg.mu.Unlock()
 
+		//fmt.Println(ok)
 		if ok {
+			//fmt.Println(count, " ", cmd)
 			if count > 0 && cmd != cmd1 {
 				cfg.t.Fatalf("committed values do not match: index %v, %v, %v\n",
 					index, cmd, cmd1)
@@ -337,6 +341,7 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 			cmd = cmd1
 		}
 	}
+	//fmt.Printf("TEST Res count:%d cmd %v\n", count, cmd)
 	return count, cmd
 }
 
@@ -396,6 +401,7 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			if rf != nil {
 				index1, _, ok := rf.Start(cmd)
 				if ok {
+					fmt.Printf("Got cmtIdx %d\n", index1)
 					index = index1
 					break
 				}
