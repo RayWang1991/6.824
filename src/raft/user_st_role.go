@@ -46,7 +46,7 @@ func (rf *Raft) GetCommitIndex() int {
 func (rf *Raft) SetCommitIndex(idx int) {
 	rf.mu.Lock()
 	rf.commitIndex = idx
-	rf.mu.Lock()
+	rf.mu.Unlock()
 }
 
 func (rf *Raft) GetTerm() int {
@@ -76,13 +76,14 @@ func (rf *Raft) becomeLeader() {
 	if rf.GetRole() != Leader {
 		DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Leader)
-		go rf.startSendHeartBeats()
-		if len(rf.logs) > 0 {
-			ok := rf.syncLogsToOthers() // TODO
-			if ok {
-				rf.syncApplyMsgs()
-			}
-		}
+		go rf.loopSendHeartBeats()
+		//go rf.startSendHeartBeats()
+		//if len(rf.logs) > 0 {
+		//	ok := rf.syncLogsToOthers() // TODO
+		//	if ok {
+		//		rf.syncApplyMsgs()
+		//	}
+		//}
 	}
 }
 

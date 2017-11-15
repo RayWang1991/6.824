@@ -75,6 +75,7 @@ type Raft struct {
 	currentTerm int          // current Term
 	votedFor    int          // candidate id(index) that vote for, -1 for null
 	logs        []LogEntry   // Logs containing Term key and action key
+	aeResCh     chan chan bool
 
 	// volatile states
 	commitIndex int // index of highest log entry known to be committed, 1 for first...
@@ -113,6 +114,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	ind = rf.GetCommitIndex()
 	//ind = rf.commitIndex + 1
 
+	defer rf.persist()
 	DLogPrintf(rf.CommitStr())
 	if !rf.IsLeader() {
 		// non leader
@@ -123,20 +125,26 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	DPrintf("[Command] %v on %d, Leader\n", command, rf.me)
 	//DPrintf(rf.DebugStr())
 	// leader
+	rf.mu.Lock()
 	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
 	ind = len(rf.logs)
+	rf.mu.Unlock()
 
-	// send append entries to all followers (exclude self)
-	// copy the history if needed
-	//rf.sendRequestVote()
+	res := make(chan bool)
+	rf.aeResCh <- res
+	ok := <-res
 
-	ok := rf.syncLogsToOthers()
 	if ok {
 		DLogPrintf("Sync Logs [Succeed] matches:%v\n", rf.matchIndex)
 		rf.syncApplyMsgs()
 	} else {
 		DLogPrintf("Sync Logs [Fail] matches:%v\n", rf.matchIndex)
 	}
+
+	// send append entries to all followers (exclude self)
+	// copy the history if needed
+	// rf.sendRequestVote()
+
 	isL = rf.IsLeader()
 	term = rf.currentTerm
 	DLogPrintf("[Return Start] Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
@@ -193,14 +201,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	rf.abort = make(chan struct{})
 	rf.heartBeat = make(chan struct{})
+	rf.aeResCh = make(chan chan bool)
 	rf.applyCh = applyCh // TODO
-	rf.persist()
+	rf.readPersist(persister.ReadRaftState())
 
 	rf.SetRole(Follower)
 	go rf.startRecvHeartBeats()
-
 	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
+	rf.persist()
 
 	return rf
 }
@@ -221,7 +229,7 @@ func (rf *Raft) GetState() (int, bool) {
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
-//
+// TODO, simplify
 func (rf *Raft) persist() {
 	// Your code here.
 	// Example:
@@ -233,11 +241,19 @@ func (rf *Raft) persist() {
 	// rf.persister.SaveRaftState(data)
 	w := new(bytes.Buffer)
 	e := gob.NewEncoder(w)
+	e.Encode(rf.commitIndex)
+	e.Encode(rf.lastApplied)
 	e.Encode(rf.currentTerm)
 	e.Encode(rf.votedFor)
 	e.Encode(rf.logs)
+	e.Encode(rf.role)
+	e.Encode(rf.state)
+	e.Encode(rf.nextIndex)
+	e.Encode(rf.matchIndex)
 	data := w.Bytes()
 	rf.persister.SaveRaftState(data)
+	// debug
+	//fmt.Println("PERSIST FOR ", rf.me)
 }
 
 //
@@ -252,18 +268,44 @@ func (rf *Raft) readPersist(data []byte) {
 	// d.Decode(&rf.yyy)
 	r := bytes.NewBuffer(data)
 	d := gob.NewDecoder(r)
-	err := d.Decode(&rf.currentTerm)
+	err := d.Decode(&rf.commitIndex)
 	if err != nil {
-		DPrintf("error in decode \"currentTerm\"")
+		DPrintf("error in decode \"commitIndex\" %v\n", err)
+	}
+	err = d.Decode(&rf.lastApplied)
+	if err != nil {
+		DPrintf("error in decode \"lastApplied\" %v\n", err)
+	}
+	err = d.Decode(&rf.currentTerm)
+	if err != nil {
+		DPrintf("error in decode \"currentTerm\" %v\n", err)
 	}
 	err = d.Decode(&rf.votedFor)
 	if err != nil {
-		DPrintf("error in decode \"votedFor\"")
+		DPrintf("error in decode \"votedFor\" %v\n", err)
 	}
 	err = d.Decode(&rf.logs)
 	if err != nil {
-		DPrintf("error in decode \"Logs\"")
+		DPrintf("error in decode \"logs\" %v\n", err)
 	}
+	err = d.Decode(&rf.role)
+	if err != nil {
+		DPrintf("error in decode \"role\" %v\n", err)
+	}
+	err = d.Decode(&rf.state)
+	if err != nil {
+		DPrintf("error in decode \"state\" %v\n", err)
+	}
+	err = d.Decode(&rf.nextIndex)
+	if err != nil {
+		DPrintf("error in decode \"Index\" %v\n", err)
+	}
+	err = d.Decode(&rf.matchIndex)
+	if err != nil {
+		DPrintf("error in decode \"matchIndex\" %v\n", err)
+	}
+	// debug
+	//fmt.Println("READPER ",rf.DebugStr())
 }
 
 //
@@ -288,11 +330,23 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
+// debug rpc
+var rvmu = &sync.Mutex{}
+var rv = 0
+
+func rvplus() {
+	rvmu.Lock()
+	rv ++
+	rvmu.Unlock()
+}
+
 //
 // example RequestVote RPC handler.
 //
 func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here.
+	rvplus()
+	DRPCPrintf("RV %d\n", rv)
 	meTerm := rf.currentTerm
 	canTerm := args.Term
 	res := false
@@ -333,6 +387,9 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	reply.Me = rf.me
 	reply.Term = meTerm
 	reply.VoteGranted = res
+
+	// debug
+	rf.persist()
 }
 
 //
@@ -375,8 +432,23 @@ type AppendEntriesReply struct {
 	Error   bool // connection error or others, here just use boolean
 }
 
+// debug rpc
+var aemu = &sync.Mutex{}
+var ae = 0
+
+func aeplus() {
+	aemu.Lock()
+	ae ++
+	aemu.Unlock()
+}
+
 // My Code goes here
 func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) {
+
+	aeplus()
+	DRPCPrintf("AE%d logs:%d\n", ae, len(args.Logs))
+	defer rf.persist()
+
 	reply.Me = rf.me
 	reply.Term = rf.currentTerm
 	if args.Term < rf.currentTerm {
@@ -399,19 +471,16 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 		}
 	}
 
-	if len(args.Logs) == 0 {
-		// Heart beat
+	// Heart beat
+	if rf.GetUserState() == InRecvHeartBeat {
 		DHBPrintf("Recv HB Id %d from %d to %d\n", args.Id, args.LeaderId, rf.me)
-		if rf.GetUserState() == InRecvHeartBeat {
-			rf.heartBeat <- struct{}{}
-		}
-		return
+		rf.heartBeat <- struct{}{}
 	}
 
 	DLogPrintf("AE Id %d recv:%d args:%s\n", args.Id, rf.me, args.DebugStr())
 	// log append
 	if args.PrevLogIndex >= len(rf.logs) {
-		DLogPrintf("Exceeds PreLogIndex %d > %d\n", args.PrevLogIndex, len(rf.logs))
+		DLogPrintf("Exceeds PreLogIndex %d >= %d\n", args.PrevLogIndex, len(rf.logs))
 		reply.Success = false
 		return
 	}

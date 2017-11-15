@@ -31,11 +31,9 @@ func (rf *Raft) syncLogsToOthers() bool {
 		if i == rf.me {
 			continue
 		}
-		rf.nextIndex[i] = len(rf.logs) - 1 // ? every time ?
 		wg.Add(1)
 		go rf.sendAppendLogsTo(i, replyCh, wg)
 	}
-
 	suc := 1  // know sayed YES
 	errN := 0 // know err (saying no)
 	//done := uint(1 << uint(rf.me)) // bit map for recording succ
