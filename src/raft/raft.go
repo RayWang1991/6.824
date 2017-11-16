@@ -130,16 +130,21 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	ind = len(rf.logs)
 	rf.mu.Unlock()
 
+	// TODO, sync, to wait answer
+	/*
 	res := make(chan bool)
 	rf.aeResCh <- res
 	ok := <-res
-
 	if ok {
 		DLogPrintf("Sync Logs [Succeed] matches:%v\n", rf.matchIndex)
 		rf.syncApplyMsgs()
 	} else {
 		DLogPrintf("Sync Logs [Fail] matches:%v\n", rf.matchIndex)
 	}
+	*/
+
+	// TODO, less RPC
+	rf.aeResCh <- nil
 
 	// send append entries to all followers (exclude self)
 	// copy the history if needed
@@ -360,6 +365,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 			if rf.GetRole() != Follower {
 				if rf.IsBusy() {
 					rf.abort <- struct{}{}
+					rf.SetUserState(None)
 				}
 				DHBPrintf("RF BF Vote Rcv\n")
 				rf.becomeFollower()
@@ -369,19 +375,24 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 			if len(rf.logs) == 0 {
 				res = true
 			} else {
+				rf.mu.Lock()
 				lastlogIdx := len(rf.logs) - 1
 				log := rf.logs[lastlogIdx]
+				rf.mu.Unlock()
 				if isNewerLog(args.LastLogTerm, args.LastLogIndex, log.Term, lastlogIdx) {
 					res = true
 				}
 			}
+			rf.mu.Lock()
+			rf.votedFor = args.CandidateId
+			rf.mu.Unlock()
 		}
 	}
 	// TODO cmp log latest
 	if res {
-		DVotePrintf("Win vote recv %d to %d\n", rf.me, args.CandidateId)
+		DPrintf("Win vote recv %d to %d\n", rf.me, args.CandidateId)
 	} else {
-		DVotePrintf("Lose vote recv %d to %d vote for %d send log indx %d term %d recv log %v\n",
+		DPrintf("Lose vote recv %d to %d vote for %d send log indx %d term %d recv log %v\n",
 			rf.me, args.CandidateId, rf.votedFor, args.LastLogIndex, args.LastLogTerm, rf.logs)
 	}
 	reply.Me = rf.me
@@ -465,6 +476,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 				DHBPrintf("Send Abort %d\n", rf.me)
 				rf.abort <- struct{}{}
 				DHBPrintf("Abort Done %d\n", rf.me)
+				rf.SetUserState(None)
 			}
 			DHBPrintf("RF BF AE\n")
 			rf.becomeFollower()
