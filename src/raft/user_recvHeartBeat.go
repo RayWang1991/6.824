@@ -24,7 +24,7 @@ func (rf *Raft) startRecvHeartBeats() {
 			timer.Stop()
 		case <-rf.heartBeat:
 			// reset timer
-			DHBPrintf("Recv HB %d %v\n", rf.me, time.Now())
+			DHBPrintf("[Recv HB] %d %v\n", rf.me, time.Now())
 			if !timer.Stop() {
 				select {
 				case <-timer.C:

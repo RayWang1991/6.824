@@ -105,7 +105,7 @@ func (rf *Raft) syncLogsToOthers() bool {
 					reply := &AppendEntriesReply{Term: -1, Req: args}
 					ok := rf.sendAppendEntries(i, *args, reply)
 					if !ok {
-						DPrintf("send AppendEntries sender %d to %d Failed!\n", rf.me, i)
+						DLogPrintf("send AppendEntries sender %d to %d Failed!\n", rf.me, i)
 						return
 					}
 					if reply.Success {
@@ -157,7 +157,7 @@ func (rf *Raft) sendAppendLogsTo(
 	//DPrintf("send heart beat to %d from %d\n", server, rf.me)
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
-		DPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
+		DLogPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
 		reply.Error = true
 	}
 	replyCh <- reply
@@ -178,6 +178,6 @@ func (rf *Raft) syncApplyMsgs() {
 			Command: rf.logs[ind-1].Content,
 		}
 		rf.applyCh <- msg
-		DLogPrintf("Done Apply %v ind %d [APPLYEE] %d\n", msg.Command, msg.Index, rf.me)
+		DPrintf("Done Apply %v ind %d [APPLYEE] %d\n", msg.Command, msg.Index, rf.me)
 	}
 }
