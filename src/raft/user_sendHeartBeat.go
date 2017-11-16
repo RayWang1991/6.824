@@ -7,6 +7,96 @@ import (
 
 const HEARTBEAT_PERIOD = 50 * time.Millisecond
 
+// use less ae rpc to append logs to others
+func (rf *Raft) lessSendHeartBeats() {
+	DHBPrintf("Start Send HB rf %d\n", rf.me)
+	rf.SetUserState(InSendingHeartBeat)
+	nomarlCh := make(chan *AppendEntriesReply)
+	wg := &sync.WaitGroup{}
+	timer := time.NewTimer(HEARTBEAT_PERIOD)
+	rf.sendHeartBeatsAll__(nomarlCh, wg)
+
+	// normal heart beat disposer
+	// should be aware that total num > 1 !!!
+	total := len(rf.peers)
+	go func(rplch chan *AppendEntriesReply, term, me int) {
+		var maxIndex = 0
+		var done uint = 1 << uint(me) // bitmap for
+		for rpl := range rplch {
+			if rpl.Success {
+				//DPrintf("[MAX] indx %d\n",maxIndex)
+				ci := rpl.Req.PrevLogIndex + len(rpl.Req.Logs) + 1
+				if ci < maxIndex {
+					//leave it, expired reply
+				} else if ci > maxIndex {
+					maxIndex = ci // update max index
+					done = 1 << uint(me)
+				} else {
+					done |= 1 << uint(rpl.Me)
+					succ := succNum(done, total)
+					if rf.MostAgreed(succ) {
+						DLogPrintf("[Done] maxIndex %d done %v\n", maxIndex, decodeBitMap(done))
+						rf.mu.Lock()
+						rf.commitIndex = maxIndex
+						//DPrintf("[CI] %d\n",rf.commitIndex)
+						rf.matchIndex[rpl.Me] = len(rf.logs) - 1
+						rf.mu.Unlock()
+						rf.syncApplyMsgs__()
+					}
+				}
+			} else if rpl.Term > term {
+				// found higher Term
+				DHBPrintf("Higher Term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
+				rf.currentTerm = term
+				rf.votedFor = -1
+				if rf.GetUserState() == InSendingHeartBeat {
+					rf.abort <- struct{}{}
+				}
+				return
+			} else { // index not match
+				rf.mu.Lock()
+				if rf.nextIndex[rpl.Me] >= 0 { // may be error in reply (disconnection)
+					rf.nextIndex[rpl.Me]--
+				}
+				rf.mu.Unlock()
+			}
+		}
+	}(nomarlCh, rf.currentTerm, rf.me)
+
+loop:
+	for {
+		select {
+		case <-rf.abort:
+			DPrintf("HB send abort!!! msg %d\n", rf.me)
+			break loop
+		case <-timer.C:
+			timer.Reset(HEARTBEAT_PERIOD) // timer must be triggered
+			rf.sendHeartBeatsAll__(nomarlCh, wg)
+		case <-rf.aeResCh:
+			if ok := timer.Stop(); !ok { // timer must not be triggered
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(HEARTBEAT_PERIOD)
+			// Do sync logs to others, in another goroutine
+			rf.sendHeartBeatsAll__(nomarlCh, wg)
+		}
+	}
+
+	DHBPrintf("End Send HB rf %d\n", rf.me)
+	// closer for reply channel
+	go func() {
+		wg.Wait()
+		close(nomarlCh)
+	}()
+	rf.SetUserState(None)
+	rf.becomeFollower()
+}
+
+// one goroutine loop for sending AE to followers
+// once got cmd, start a sync func to append logs to followers, if succeed (most agreed), update commit index
 func (rf *Raft) loopSendHeartBeats() {
 	DHBPrintf("Start Send HB rf %d\n", rf.me)
 	rf.SetUserState(InSendingHeartBeat)
@@ -65,7 +155,6 @@ func (rf *Raft) loopSendHeartBeats() {
 	}()
 }
 
-
 func (rf *Raft) syncLogsToOthers__(res chan bool) {
 	wg := &sync.WaitGroup{}
 	replyCh := make(chan *AppendEntriesReply)
@@ -79,8 +168,6 @@ func (rf *Raft) syncLogsToOthers__(res chan bool) {
 		go rf.sendAETo(i, replyCh, wg)
 		DHBPrintf("[AE]Send HEART BEAT sender %d to %d %v\n", rf.me, i, time.Now())
 	}
-	//wg.Add(5)
-	//rf.sendHeartBeatsAll__(replyCh,wg)
 	suc := 1  // know sayed YES
 	errN := 0 // know err (saying no)
 	//done := uint(1 << uint(rf.me)) // bit map for recording succ
@@ -101,7 +188,7 @@ func (rf *Raft) syncLogsToOthers__(res chan bool) {
 				break
 			}
 		} else if rpl.Term > rpl.Req.Term {
-			DLogPrintf("Found Higher Term in Reply %d > %d for ae Send %d Recv %d\n",
+			DPrintf("Found Higher Term in Reply %d > %d for ae Send %d Recv %d\n",
 				rpl.Term, rf.currentTerm, rf.me, rpl.Me)
 			foundHigherT = true
 			break
@@ -186,7 +273,7 @@ func (rf *Raft) sendAETo(
 	DHBPrintf("[real]Send HEART BEAT sender %d to %d %v\n", rf.me, server, time.Now())
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
-		DPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
+		DLogPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
 		reply.Error = true
 	}
 	replyCh <- reply
@@ -199,6 +286,9 @@ func (rf *Raft) syncApplyMsgs__() {
 		rf.lastApplied++
 		rf.mu.Lock()
 		ind := rf.lastApplied
+		if ind > len(rf.logs) {
+			ind = len(rf.logs)
+		}
 		rf.mu.Unlock()
 		if ind <= 0 {
 			continue
@@ -208,6 +298,6 @@ func (rf *Raft) syncApplyMsgs__() {
 			Command: rf.logs[ind-1].Content,
 		}
 		rf.applyCh <- msg
-		DLogPrintf("Done Apply %v ind %d [APPLYEE] %d\n", msg.Command, msg.Index, rf.me)
+		DPrintf("Done Apply %v ind %d [APPLYEE] %d\n", msg.Command, msg.Index, rf.me)
 	}
 }
