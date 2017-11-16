@@ -337,7 +337,8 @@ func TestBackup(t *testing.T) {
 	cfg.disconnect((leader1 + 4) % servers)
 
 	// submit lots of commands that won't commit
-	for i := 0; i < 50; i++ {
+	num := 50
+	for i := 0; i < num; i++ {
 		cfg.rafts[leader1].Start(rand.Int())
 	}
 
@@ -352,7 +353,7 @@ func TestBackup(t *testing.T) {
 	cfg.connect((leader1 + 4) % servers)
 
 	// lots of successful commands to new group.
-	for i := 0; i < 50; i++ {
+	for i := 0; i < num; i++ {
 		cfg.one(rand.Int(), 3)
 	}
 
@@ -365,7 +366,7 @@ func TestBackup(t *testing.T) {
 	cfg.disconnect(other)
 
 	// lots more commands that won't commit
-	for i := 0; i < 50; i++ {
+	for i := 0; i < num; i++ {
 		cfg.rafts[leader2].Start(rand.Int())
 	}
 
@@ -380,7 +381,7 @@ func TestBackup(t *testing.T) {
 	cfg.connect(other)
 
 	// lots of successful commands to new group.
-	for i := 0; i < 50; i++ {
+	for i := 0; i < num; i++ {
 		cfg.one(rand.Int(), 3)
 	}
 
@@ -477,8 +478,10 @@ loop:
 			continue loop
 		}
 
-		if total2-total1 > (iters+1+3)*3 {
-			t.Fatalf("too many RPCs (%v) for %v entries\n", total2-total1, iters)
+		shouldB := (iters + 1 + 3) * 3
+		if total2-total1 > shouldB {
+			t.Fatalf("too many RPCs (%v) for %v entries, should be less than %d\n",
+				total2-total1, iters, shouldB)
 		}
 
 		success = true
