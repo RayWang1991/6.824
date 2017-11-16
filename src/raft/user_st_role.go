@@ -76,14 +76,16 @@ func (rf *Raft) becomeLeader() {
 	if rf.GetRole() != Leader {
 		DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Leader)
-		go rf.loopSendHeartBeats()
-		//go rf.startSendHeartBeats()
-		//if len(rf.logs) > 0 {
-		//	ok := rf.syncLogsToOthers() // TODO
-		//	if ok {
-		//		rf.syncApplyMsgs()
-		//	}
-		//}
+		// TODO, loop
+		//go rf.loopSendHeartBeats()
+		// TODO, less RPC
+		for i := range rf.peers {
+			if i == rf.me {
+				continue
+			}
+			rf.nextIndex[i] = len(rf.logs) - 1
+		}
+		go rf.lessSendHeartBeats()
 	}
 }
 
@@ -92,6 +94,10 @@ func (rf *Raft) becomeFollower() {
 	if rf.GetRole() != Follower {
 		DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Follower)
+		if rf.IsBusy() {
+			rf.abort <- struct{}{}
+			rf.SetUserState(None)
+		}
 		go rf.startRecvHeartBeats()
 	}
 }

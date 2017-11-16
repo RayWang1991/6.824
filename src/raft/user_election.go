@@ -87,6 +87,7 @@ func (rf *Raft) startElection() {
 		}(replyCh, wg)
 	}
 
+	rf.SetUserState(None)
 	if beLeader {
 		rf.becomeLeader()
 	} else {
