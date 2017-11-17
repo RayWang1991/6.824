@@ -4,8 +4,10 @@ import "time"
 
 // for follower to start receiving (want) heart beats
 func (rf *Raft) startRecvHeartBeats() {
+	DHBPrintf("[{~START RECV HB~]} %d\n", rf.me)
 	rf.SetUserState(InRecvHeartBeat)
 	canceled := false
+	toBeCandidate := false
 
 	timer := time.NewTimer(randomTimeOut())
 
@@ -15,7 +17,7 @@ func (rf *Raft) startRecvHeartBeats() {
 			DHBPrintf("HeartBeat Time Out msg %d\n", rf.me)
 			timer.Stop()
 			rf.SetUserState(None)
-			rf.becomeCandidate()
+			toBeCandidate = true
 			canceled = true
 		case <-rf.abort:
 			DHBPrintf("HB recv abort msg %d\n", rf.me)
@@ -34,5 +36,9 @@ func (rf *Raft) startRecvHeartBeats() {
 			DHBPrintf("[HB Stop] %d %v\n", rf.me, time.Now())
 			timer.Reset(randomTimeOut())
 		}
+	}
+	DHBPrintf("[{~END RECV HB~]} %d\n", rf.me)
+	if toBeCandidate {
+		rf.becomeCandidate()
 	}
 }

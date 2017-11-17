@@ -95,22 +95,9 @@ func (rf *Raft) becomeFollower() {
 		DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Follower)
 		if rf.IsBusy() {
-			rf.abort <- struct{}{}
 			rf.SetUserState(None)
+			rf.abort <- struct{}{}
 		}
 		go rf.startRecvHeartBeats()
 	}
-}
-
-// reset before change role from candidate to others
-func (rf *Raft) resetCandidate() {
-	DPrintf("Reset Candidate\n")
-}
-
-// reset before change role from follower to others
-func (rf *Raft) resetFollower() {
-}
-
-// reset before change role from Leader to others
-func (rf *Raft) resetLeader() {
 }

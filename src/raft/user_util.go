@@ -100,7 +100,13 @@ func (rf *Raft) CommitStr() string {
 }
 
 func (args AppendEntriesArg) DebugStr() string {
-	return fmt.Sprintf("Id:%d Logs:%v PrevIdx:%d PrevTerm:%d LeaderCIdx:%d", args.Id, args.Logs, args.PrevLogIndex, args.PrevLogTerm, args.LeaderCommit)
+	return fmt.Sprintf("Arg SenderId:%d Term:%d Logs:%v PrevIdx:%d PrevTerm:%d LeaderCIdx:%d",
+		args.LeaderId, args.Term, args.Logs, args.PrevLogIndex, args.PrevLogTerm, args.LeaderCommit)
+}
+
+func (rpl *AppendEntriesReply) DebugStr() string {
+	return fmt.Sprintf("RPL Sender:%d Rcv:%d STerm:%d RTerm:%d Succ:%t Error:%t\n",
+		rpl.Req.LeaderId, rpl.Me, rpl.Req.Term, rpl.Term, rpl.Success, rpl.Error)
 }
 
 // true for most peers says agreed

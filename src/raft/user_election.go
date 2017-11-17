@@ -70,6 +70,7 @@ func (rf *Raft) startElection() {
 					}
 				}
 			case <-rf.abort: // may receive heart beats from leader
+				DVotePrintf("Election aborted %d\n", rf.me)
 				electionFlag = false
 				waitFlag = false
 				beLeader = false
@@ -104,7 +105,7 @@ func (rf *Raft) sendRequestVoteTo(
 	ok := rf.sendRequestVote(server, *args, reply)
 	if !ok {
 		// TODO keep asking or election time out?
-		DVotePrintf("Send RequestVote For to %d from %d failed\n", server, rf.me)
+		DVotePrintf("Send RequestVote sender %d to %d [failed, Error]\n", rf.me, server)
 		//ok = rf.sendRequestVote(server, *args, reply)
 	}
 	replyCh <- reply
