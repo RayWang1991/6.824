@@ -367,7 +367,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 			if rf.GetRole() != Follower {
 				DPrintf("RF is not follower Vote Rcv\n")
 				if rf.IsBusy() {
-					DPrintf("RF is not follower, send abort %s\n",rf.DebugStr())
+					DPrintf("RF is not follower, send abort %s\n", rf.DebugStr())
 					rf.abort <- struct{}{}
 				}
 			}
@@ -464,12 +464,14 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 		//debug
 		reply.Success = false
 		return
-	} else if args.Term > rf.currentTerm {
-		DHBPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
-		rf.currentTerm = args.Term
-		rf.votedFor = -1
-		DHBPrintf("Now Term is %d for %d in Append Entries\n", rf.currentTerm, rf.me)
-		DHBPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
+	} else {
+		if args.Term > rf.currentTerm {
+			DHBPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
+			rf.currentTerm = args.Term
+			rf.votedFor = -1
+			DHBPrintf("Now Term is %d for %d in Append Entries\n", rf.currentTerm, rf.me)
+			DHBPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
+		}
 		if rf.GetRole() != Follower {
 			if rf.IsBusy() {
 				DHBPrintf("Send Abort %d\n", rf.me)
