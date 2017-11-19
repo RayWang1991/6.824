@@ -14,16 +14,14 @@ func (rf *Raft) startRecvHeartBeats() {
 	for !canceled {
 		select {
 		case <-timer.C:
-			DHBPrintf("HeartBeat Time Out msg %d\n", rf.me)
 			timer.Stop()
-			rf.SetUserState(None)
+			DHBPrintf("HeartBeat Time Out msg %d\n", rf.me)
 			toBeCandidate = true
 			canceled = true
 		case <-rf.abort:
-			DHBPrintf("HB recv abort msg %d\n", rf.me)
-			rf.SetUserState(None)
-			canceled = true
 			timer.Stop()
+			DHBPrintf("HB recv abort msg %d\n", rf.me)
+			canceled = true
 		case <-rf.heartBeat:
 			// reset timer
 			DHBPrintf("[Recv HB] %d %v\n", rf.me, time.Now())
@@ -38,6 +36,7 @@ func (rf *Raft) startRecvHeartBeats() {
 		}
 	}
 	DHBPrintf("[{~END RECV HB~]} %d\n", rf.me)
+	rf.SetUserState(None)
 	if toBeCandidate {
 		rf.becomeCandidate()
 	}

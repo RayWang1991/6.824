@@ -67,6 +67,10 @@ func (rf *Raft) becomeCandidate() {
 	if rf.GetRole() != Candidate {
 		DPrintf("Become Candidate %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Candidate)
+		if rf.IsBusy() {
+			rf.SetUserState(None)
+			rf.abort <- struct{}{}
+		}
 		rf.startElection()
 	}
 }
@@ -76,9 +80,10 @@ func (rf *Raft) becomeLeader() {
 	if rf.GetRole() != Leader {
 		DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Leader)
-		// TODO, loop
-		//go rf.loopSendHeartBeats()
-		// TODO, less RPC
+		if rf.IsBusy() {
+			rf.SetUserState(None)
+			rf.abort <- struct{}{}
+		}
 		for i := range rf.peers {
 			if i == rf.me {
 				continue

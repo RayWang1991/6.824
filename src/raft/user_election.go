@@ -79,9 +79,8 @@ func (rf *Raft) startElection() {
 				waitFlag = false
 			}
 		}
+
 		go dranRplChV(replyCh, rf.me, rf.currentTerm)
-		// TODO chanel closer
-		// reply ch closer
 		go func(ch chan *RequestVoteReply, wg *sync.WaitGroup) {
 			wg.Wait()
 			close(ch)
