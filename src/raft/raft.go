@@ -364,13 +364,23 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 			rf.votedFor = -1 // new term, update votedFor
 			rf.mu.Unlock()
 			DVotePrintf("term change %d > %d\n", canTerm, meTerm)
+			rf.mu.Lock()
+			toBe := rf.role != Follower || rf.state != InRecvHeartBeat
+			rf.mu.Unlock()
+			if toBe {
+				// become follower
+				rf.becomeFollower()
+			}
+			/*
 			if rf.GetRole() != Follower {
-				DPrintf("RF is not follower Vote Rcv\n")
+				DPrintf("RF %d is not follower Vote Rcv\n", rf.me)
 				if rf.IsBusy() {
 					DPrintf("RF is not follower, send abort %s\n", rf.DebugStr())
 					rf.abort <- struct{}{}
 				}
+				// TODO ??? refact
 			}
+			*/
 		}
 		rf.mu.Lock()
 		if rf.votedFor < 0 || rf.votedFor == args.CandidateId {
@@ -437,6 +447,7 @@ type AppendEntriesArg struct {
 type AppendEntriesReply struct {
 	Req     *AppendEntriesArg
 	Me      int
+	Len     int // tell the sender the length of self len, fasten the nextidx --
 	Term    int // for leader to update itself's Term(role)
 	Success bool
 	Error   bool // connection error or others, here just use boolean
@@ -472,6 +483,14 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 			DHBPrintf("Now Term is %d for %d in Append Entries\n", rf.currentTerm, rf.me)
 			DHBPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
 		}
+		rf.mu.Lock()
+		toBe := rf.role != Follower || rf.state != InRecvHeartBeat
+		rf.mu.Unlock()
+		if toBe {
+			// become follower
+			rf.becomeFollower()
+		}
+		/*
 		if rf.GetRole() != Follower {
 			if rf.IsBusy() {
 				DHBPrintf("Send Abort %d\n", rf.me)
@@ -479,6 +498,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 				DHBPrintf("Abort Done %d\n", rf.me)
 			}
 		}
+		*/
 	}
 
 	// Heart beat
@@ -490,7 +510,9 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 	//debug
 	//DPrintf("[AE] recv:%d args:%s\n", rf.me, args.DebugStr())
 	// log append
-	if args.PrevLogIndex >= len(rf.logs) {
+	l := len(rf.logs)
+	reply.Len = l
+	if args.PrevLogIndex >= l {
 		DLogPrintf("Exceeds PreLogIndex %d >= %d\n", args.PrevLogIndex, len(rf.logs))
 		reply.Success = false
 		return
@@ -523,8 +545,10 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 
 	reply.Success = true
 
-	DLogPrintf("Recv %d Server Commit:%d self Commit:%d lastApply:%d self log %v\n",
-		rf.me, args.LeaderCommit, rf.commitIndex, rf.lastApplied, rf.logs)
+	DLogPrintf("Recv %d Sender:%d PrevIndex:%d logLength:%d"+
+		" LeaderCommit:%d self Commit:%d lastApply:%d self log %v\n",
+		rf.me, args.LeaderId, args.PrevLogIndex, len(args.Logs),
+		args.LeaderCommit, rf.commitIndex, rf.lastApplied, rf.logs)
 
 	DLogPrintf("ON Reply commitIdx is %d\n", rf.GetCommitIndex())
 }

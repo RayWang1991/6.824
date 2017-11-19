@@ -51,6 +51,12 @@ func (rf *Raft) lessSendHeartBeats() {
 						rf.syncApplyMsgs()
 						rf.mu.Unlock()
 					}
+					// TODO, update nextidx for server
+					rf.mu.Lock()
+					if rf.nextIndex[rpl.Me] != appendIndex-1 {
+						rf.nextIndex[rpl.Me] = appendIndex - 1
+					}
+					rf.mu.Unlock()
 				}
 			} else if rpl.Term > term {
 				// found higher Term
@@ -63,7 +69,9 @@ func (rf *Raft) lessSendHeartBeats() {
 				return
 			} else { // index not match
 				rf.mu.Lock()
-				if rf.nextIndex[rpl.Me] >= 0 { // may be error in reply (disconnection)
+				if rf.nextIndex[rpl.Me] > rpl.Len {
+					rf.nextIndex[rpl.Me] = rpl.Len // shorten
+				} else if rf.nextIndex[rpl.Me] >= 0 { // may be error in reply (disconnection)
 					rf.nextIndex[rpl.Me]--
 				}
 				rf.mu.Unlock()
@@ -76,6 +84,7 @@ loop:
 		select {
 		case <-rf.abort:
 			DHBPrintf("HB send abort!!! msg %d\n", rf.me)
+			timer.Stop()
 			break loop
 		case <-timer.C:
 			timer.Reset(HEARTBEAT_PERIOD) // timer must be triggered
@@ -151,7 +160,7 @@ func (rf *Raft) sendAETo(
 	DHBPrintf("[real]Send HEART BEAT sender %d to %d %v\n", rf.me, server, time.Now())
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
-		DLogPrintf("send AppendEntries to %d failed sender %d\n", server, rf.me)
+		DLogPrintf("send AppendEntries to %d [failed] sender %d\n", server, rf.me)
 		reply.Error = true
 	}
 	replyCh <- reply
