@@ -68,6 +68,7 @@ type Raft struct {
 	peers     []*labrpc.ClientEnd
 	persister *Persister
 	me        int // index into peers[], self Id
+	maxId     int // max id for ae request, for leader just increase, for follower, too judge if it is expired
 
 	// persistent states
 	mu          *sync.Mutex
@@ -110,24 +111,23 @@ type Raft struct {
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
+	rf.mu.Lock()
 	term = rf.currentTerm
-	ind = rf.GetCommitIndex()
-	//ind = rf.commitIndex + 1
+	ind = rf.commitIndex
 
 	defer rf.persist()
-	if !rf.IsLeader() {
+	if rf.role != Leader {
 		// non leader
 		//DPrintf("Command on %d, no leader\n", rf.me)
 		DLogPrintf("[Return Start] Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
+		rf.mu.Unlock()
 		return
 	}
-	DPrintf("[Command] %v on %d, Leader\n", command, rf.me)
+	DPrintf("[Command] %v on %d, Leader Term:%d\n", command, rf.me, rf.currentTerm)
 	//DPrintf(rf.DebugStr())
 	// leader
-	rf.mu.Lock()
 	rf.logs = append(rf.logs, LogEntry{Term: rf.currentTerm, Content: command})
 	ind = len(rf.logs)
-	rf.mu.Unlock()
 
 	// TODO, sync, to wait answer
 	/*
@@ -141,6 +141,7 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 		DLogPrintf("Sync Logs [Fail] matches:%v\n", rf.matchIndex)
 	}
 	*/
+	rf.mu.Unlock()
 
 	// TODO, less RPC
 	rf.aeResCh <- nil
@@ -149,10 +150,9 @@ func (rf *Raft) Start(command interface{}) (ind int, term int, isL bool) {
 	// copy the history if needed
 	// rf.sendRequestVote()
 
-	isL = rf.IsLeader()
-	term = rf.currentTerm
+	isL = rf.GetRole() == Leader
+	term = rf.GetTerm()
 	DLogPrintf("[Return Start] Answer:%d Commit:%d Term:%d IsLeader:%t\n", rf.me, ind, term, isL)
-
 	return
 }
 
@@ -224,8 +224,10 @@ func (rf *Raft) GetState() (int, bool) {
 	var term int
 	var isleader bool
 	// Your code here.
+	rf.mu.Lock()
 	term = rf.currentTerm
-	isleader = rf.IsLeader()
+	isleader = rf.role == Leader
+	rf.mu.Unlock()
 	return term, isleader
 }
 
@@ -361,16 +363,13 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 		if canTerm > rf.currentTerm {
 			rf.mu.Lock()
 			rf.currentTerm = args.Term
+			rf.maxId = 0
 			rf.votedFor = -1 // new term, update votedFor
-			rf.mu.Unlock()
 			DVotePrintf("term change %d > %d\n", canTerm, meTerm)
-			rf.mu.Lock()
-			toBe := rf.role != Follower || rf.state != InRecvHeartBeat
-			rf.mu.Unlock()
-			if toBe {
-				// become follower
-				rf.becomeFollower()
+			if rf.role != Follower || rf.state != InRecvHeartBeat {
+				rf.becomeFollowerNoLock()
 			}
+			rf.mu.Unlock()
 			/*
 			if rf.GetRole() != Follower {
 				DPrintf("RF %d is not follower Vote Rcv\n", rf.me)
@@ -378,7 +377,6 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 					DPrintf("RF is not follower, send abort %s\n", rf.DebugStr())
 					rf.abort <- struct{}{}
 				}
-				// TODO ??? refact
 			}
 			*/
 		}
@@ -400,9 +398,10 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	}
 	// TODO cmp log latest
 	if res {
-		DVotePrintf("Win vote recv %d to %d\n", rf.me, args.CandidateId)
+		DVotePrintf("Win vote recv %d sender %d lastLogTerm %d lastLogIndex%d\n",
+			rf.me, args.CandidateId, args.LastLogTerm, args.LastLogIndex)
 	} else {
-		DVotePrintf("Lose vote recv %d to %d vote for %d send log indx %d term %d recv \n",
+		DVotePrintf("Lose vote recv %d sender %d vote for %d send log indx %d term %d recv \n",
 			rf.me, args.CandidateId, rf.votedFor, args.LastLogIndex, args.LastLogTerm)
 	}
 	reply.Me = rf.me
@@ -436,6 +435,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 }
 
 type AppendEntriesArg struct {
+	ReqId        int        // for expiration
 	Term         int        // leader's Term
 	LeaderId     int        // Leader Id
 	Logs         []LogEntry // Logs
@@ -448,6 +448,7 @@ type AppendEntriesReply struct {
 	Req     *AppendEntriesArg
 	Me      int
 	Len     int // tell the sender the length of self len, fasten the nextidx --
+	LTerm   int // term of last log
 	Term    int // for leader to update itself's Term(role)
 	Success bool
 	Error   bool // connection error or others, here just use boolean
@@ -470,26 +471,25 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 	defer rf.persist()
 
 	reply.Me = rf.me
-	reply.Term = rf.currentTerm
-	if args.Term < rf.currentTerm {
-		//debug
+	reply.Term = rf.GetTerm()
+	if args.Term < reply.Term {
 		reply.Success = false
 		return
 	} else {
+		rf.mu.Lock()
+		if rf.role != Follower || rf.state != InRecvHeartBeat {
+			rf.becomeFollowerNoLock()
+		}
 		if args.Term > rf.currentTerm {
 			DHBPrintf("CanTerm > meTerm %d %d\n", args.Term, rf.currentTerm)
 			rf.currentTerm = args.Term
 			rf.votedFor = -1
+			rf.maxId = 0
 			DHBPrintf("Now Term is %d for %d in Append Entries\n", rf.currentTerm, rf.me)
 			DHBPrintf("Role is %s for %d\n", rf.RoleStr(), rf.me)
 		}
-		rf.mu.Lock()
-		toBe := rf.role != Follower || rf.state != InRecvHeartBeat
 		rf.mu.Unlock()
-		if toBe {
-			// become follower
-			rf.becomeFollower()
-		}
+
 		/*
 		if rf.GetRole() != Follower {
 			if rf.IsBusy() {
@@ -503,54 +503,71 @@ func (rf *Raft) AppendEntries(args AppendEntriesArg, reply *AppendEntriesReply) 
 
 	// Heart beat
 	if rf.GetUserState() == InRecvHeartBeat {
-		DHBPrintf("Recv HB Id from %d to %d\n", args.LeaderId, rf.me)
+		DHBPrintf("Recv HB Id sender %d recv %d\n", args.LeaderId, rf.me)
 		rf.heartBeat <- struct{}{}
 	}
 
 	//debug
 	//DPrintf("[AE] recv:%d args:%s\n", rf.me, args.DebugStr())
 	// log append
+	rf.mu.Lock()
 	l := len(rf.logs)
 	reply.Len = l
+	rf.mu.Unlock()
 	if args.PrevLogIndex >= l {
-		DLogPrintf("Exceeds PreLogIndex %d >= %d\n", args.PrevLogIndex, len(rf.logs))
+		DLogPrintf("Exceeds PreLogIndex %d >= %d sender %d recv %d\n",
+			args.PrevLogIndex, len(rf.logs), args.LeaderId, rf.me)
 		reply.Success = false
 		return
 	}
 
 	if args.PrevLogIndex >= 0 && args.PrevLogTerm != rf.logs[args.PrevLogIndex].Term {
-		DLogPrintf("Term Mismatch %d != %d\n", args.PrevLogTerm, rf.logs[args.PrevLogIndex].Term)
+		DLogPrintf("Term Mismatch %d != %d sender %d recv %d\n",
+			args.PrevLogTerm, rf.logs[args.PrevLogIndex].Term, args.LeaderId, rf.me)
+		reply.LTerm = rf.logs[args.PrevLogIndex].Term
 		reply.Success = false
 		return
 	}
 
 	rf.mu.Lock()
 	// match, copy(and may overwrite) logs
-	rf.logs = rf.logs[:args.PrevLogIndex+1] // prev log index may be -1
-	for _, log := range args.Logs {
-		rf.logs = append(rf.logs, log)
+	DLogPrintf("Copy Logs recv %d at %d\n", rf.me, args.PrevLogIndex)
+	// TODO should ignore expired requests,
+	// TODO voted for?
+	if rf.maxId <= args.ReqId {
+		DLogPrintf("NOEXPI??? LeaderId%d votefor%d argsId%d maxId%d\n",
+			args.LeaderId, rf.votedFor, args.ReqId, rf.maxId)
+		rf.maxId = args.ReqId
+
+		rf.logs = rf.logs[:args.PrevLogIndex+1] // prev log index may be -1
+
+		for _, log := range args.Logs {
+			rf.logs = append(rf.logs, log)
+		}
+		if rf.commitIndex < args.LeaderCommit {
+			rf.commitIndex = args.LeaderCommit
+		}
+		if rf.commitIndex > len(rf.logs) {
+			rf.commitIndex = len(rf.logs)
+		}
+		rf.syncApplyMsgs()
+		reply.Success = true
+	} else {
+		DLogPrintf("Expired??? LeaderId%d votefor%d argsId%d maxId%d\n",
+			args.LeaderId, rf.votedFor, args.ReqId, rf.maxId)
+		// TODO should false? maybe
+		reply.Success = false
 	}
-	if rf.commitIndex < args.LeaderCommit {
-		rf.commitIndex = args.LeaderCommit
-	}
-	if rf.commitIndex > len(rf.logs) {
-		rf.commitIndex = len(rf.logs)
-	}
-	rf.syncApplyMsgs()
 	rf.mu.Unlock()
 	// debug
 	if rf.lastApplied > rf.commitIndex {
 		DPrintf("[[[Last > Commit]]] Args%v\n Rf:%v\n", args.DebugStr(), rf.DebugStr())
 	}
 
-	reply.Success = true
-
 	DLogPrintf("Recv %d Sender:%d PrevIndex:%d logLength:%d"+
 		" LeaderCommit:%d self Commit:%d lastApply:%d self log %v\n",
 		rf.me, args.LeaderId, args.PrevLogIndex, len(args.Logs),
 		args.LeaderCommit, rf.commitIndex, rf.lastApplied, rf.logs)
-
-	DLogPrintf("ON Reply commitIdx is %d\n", rf.GetCommitIndex())
 }
 
 // wrapper for append entries call

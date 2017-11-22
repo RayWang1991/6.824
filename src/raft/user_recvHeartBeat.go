@@ -21,6 +21,7 @@ func (rf *Raft) startRecvHeartBeats() {
 		case <-rf.abort:
 			timer.Stop()
 			DHBPrintf("HB recv abort msg %d\n", rf.me)
+			rf.abort <- struct{}{}
 			canceled = true
 		case <-rf.heartBeat:
 			// reset timer
@@ -36,7 +37,6 @@ func (rf *Raft) startRecvHeartBeats() {
 		}
 	}
 	DHBPrintf("[{~END RECV HB~]} %d\n", rf.me)
-	rf.SetUserState(None)
 	if toBeCandidate {
 		rf.becomeCandidate()
 	}

@@ -41,6 +41,7 @@ func (rf *Raft) lessSendHeartBeats() {
 					doneAL = 1 << uint(me)
 				} else {
 					doneAL |= 1 << uint(rpl.Me)
+					DLogPrintf("[COMMIT RECV] maxAppendLogIndex %d recv %d\n", maxAppendLogIndex, rpl.Me)
 					succAL := succNum(doneAL, total)
 					if rf.MostAgreed(succAL) {
 						DLogPrintf("[Done] maxAppendLogIndex %d doneAL %v\n", maxAppendLogIndex, decodeBitMap(doneAL))
@@ -61,19 +62,33 @@ func (rf *Raft) lessSendHeartBeats() {
 			} else if rpl.Term > term {
 				// found higher Term
 				DHBPrintf("Higher Term on reply heart beat from %d %d > %d\n", me, rpl.Term, term)
+				rf.becomeFollower()
 				rf.currentTerm = rpl.Term
 				rf.votedFor = -1
-				if rf.GetUserState() == InSendingHeartBeat {
-					rf.abort <- struct{}{}
-				}
 				return
-			} else { // index not match
+			} else { // index not match or term not match
 				rf.mu.Lock()
-				if rf.nextIndex[rpl.Me] > rpl.Len {
-					rf.nextIndex[rpl.Me] = rpl.Len // shorten
-				} else if rf.nextIndex[rpl.Me] >= 0 { // may be error in reply (disconnection)
-					rf.nextIndex[rpl.Me]--
+				if rf.nextIndex[rpl.Me] >= rpl.Len { // send log too long
+					rf.nextIndex[rpl.Me] = rpl.Len - 1 // shorten
+				} else {
+					if rpl.LTerm != rpl.Req.PrevLogTerm { // term not match
+						nxtIdx := rf.nextIndex[rpl.Me]
+						l := len(rf.logs)
+						for nxtIdx >= 0 && nxtIdx < l && rpl.LTerm != rf.logs[nxtIdx].Term {
+							nxtIdx --
+						}
+						rf.nextIndex[rpl.Me] = nxtIdx
+					} else if rf.nextIndex[rpl.Me] >= 0 { // may be error in reply (disconnection)
+						rf.nextIndex[rpl.Me]--
+					}
 				}
+
+				//if rpl.LTerm != rpl.Req.PrevLogTerm { // term not match
+				//	for rf.nextIndex[rpl.Me] >= 0 && rpl.LTerm != rf.logs[rf.nextIndex[rpl.Me]].Term {
+				//		rf.nextIndex[rpl.Me] --
+				//	}
+				//}
+
 				rf.mu.Unlock()
 			}
 		}
@@ -85,6 +100,7 @@ loop:
 		case <-rf.abort:
 			DHBPrintf("HB send abort!!! msg %d\n", rf.me)
 			timer.Stop()
+			rf.abort <- struct{}{} // sync
 			break loop
 		case <-timer.C:
 			timer.Reset(HEARTBEAT_PERIOD) // timer must be triggered
@@ -109,8 +125,8 @@ loop:
 		wg.Wait()
 		close(nomarlCh)
 	}()
-	rf.SetUserState(None)
-	rf.becomeFollower()
+	//rf.SetUserState(None)
+	//rf.SetRole(Follower)
 }
 
 // developing
@@ -125,6 +141,7 @@ func (rf *Raft) aeArg__(server, rfterm int) *AppendEntriesArg {
 		term = rf.logs[ind].Term
 	}
 	arg := &AppendEntriesArg{
+		ReqId:        rf.maxId,
 		Term:         rfterm,
 		LeaderId:     rf.me,
 		LeaderCommit: rf.commitIndex,
@@ -132,6 +149,7 @@ func (rf *Raft) aeArg__(server, rfterm int) *AppendEntriesArg {
 		PrevLogTerm:  term,
 		Logs:         rf.logs[ind+1:],
 	}
+	rf.maxId++
 	rf.mu.Unlock()
 	return arg
 }
@@ -145,7 +163,7 @@ func (rf *Raft) sendHeartBeatsAll__(replyCh chan *AppendEntriesReply, wg *sync.W
 			wg.Add(1)
 		}
 		go rf.sendAETo(i, cterm, replyCh, wg)
-		DLogPrintf("[HB]Send HEART BEAT sender %d to %d %v\n", rf.me, i, time.Now())
+		//DLogPrintf("[HB]Send HEART BEAT sender %d recv %d %v\n", rf.me, i, time.Now())
 	}
 }
 
@@ -155,9 +173,13 @@ func (rf *Raft) sendAETo(
 	replyCh chan *AppendEntriesReply,
 	wg *sync.WaitGroup) {
 	args := rf.aeArg__(server, cterm)
-	reply := &AppendEntriesReply{Term: -1, Req: args}
+	reply := &AppendEntriesReply{Term: -1, LTerm: -1, Req: args}
 	//DPrintf("send heart beat to %d from %d\n", server, rf.me)
-	DHBPrintf("[real]Send HEART BEAT sender %d to %d %v\n", rf.me, server, time.Now())
+	DHBPrintf("[real]Send HEART BEAT sender %d recv %d prevIdx %d prevTerm %d Term:%d\n",
+		rf.me, server, args.PrevLogIndex, args.PrevLogTerm, rf.currentTerm)
+	if args.ReqId%10 == 0 {
+		DHBPrintf("[real]sender %d logs:%v\n", rf.me, rf.logs)
+	}
 	ok := rf.sendAppendEntries(server, *args, reply)
 	if !ok {
 		DLogPrintf("send AppendEntries to %d [failed] sender %d\n", server, rf.me)

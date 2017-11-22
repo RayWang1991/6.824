@@ -63,6 +63,7 @@ func (rf *Raft) startElection() {
 				} else {
 					if rpl.Term > rf.currentTerm {
 						rf.currentTerm = rpl.Term
+						rf.maxId = 0
 						rf.votedFor = -1
 						electionFlag = false
 						waitFlag = false
@@ -74,6 +75,8 @@ func (rf *Raft) startElection() {
 				electionFlag = false
 				waitFlag = false
 				beLeader = false
+				rf.abort <- struct{}{}
+
 			case <-time.After(randomTimeOut()):
 				// keep election
 				waitFlag = false
@@ -87,7 +90,7 @@ func (rf *Raft) startElection() {
 		}(replyCh, wg)
 	}
 
-	rf.SetUserState(None)
+	rf.state = None
 	if beLeader {
 		rf.becomeLeader()
 	} else {

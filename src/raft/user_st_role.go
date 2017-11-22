@@ -67,22 +67,21 @@ func (rf *Raft) becomeCandidate() {
 	if rf.GetRole() != Candidate {
 		DPrintf("Become Candidate %d Term %d\n", rf.me, rf.currentTerm)
 		rf.SetRole(Candidate)
-		if rf.IsBusy() {
-			rf.SetUserState(None)
-			rf.abort <- struct{}{}
-		}
 		rf.startElection()
 	}
 }
 
 // candidate to leader
 func (rf *Raft) becomeLeader() {
-	if rf.GetRole() != Leader {
+	rf.mu.Lock()
+	if rf.role != Leader {
 		DPrintf("Become Leader %d Term %d\n", rf.me, rf.currentTerm)
-		rf.SetRole(Leader)
-		if rf.IsBusy() {
-			rf.SetUserState(None)
+		rf.role = Leader
+		rf.maxId = 0
+		if rf.state != None {
+			rf.state = None
 			rf.abort <- struct{}{}
+			<-rf.abort
 		}
 		for i := range rf.peers {
 			if i == rf.me {
@@ -92,16 +91,25 @@ func (rf *Raft) becomeLeader() {
 		}
 		go rf.lessSendHeartBeats()
 	}
+	rf.mu.Unlock()
 }
 
 // candidate / leader to follower
 func (rf *Raft) becomeFollower() {
-	if rf.GetRole() != Follower {
+	rf.mu.Lock()
+	rf.becomeFollowerNoLock()
+	rf.mu.Unlock()
+}
+
+func (rf *Raft) becomeFollowerNoLock() {
+	if rf.role != Follower {
 		DPrintf("Become Follower %d Term %d\n", rf.me, rf.currentTerm)
-		rf.SetRole(Follower)
-		if rf.IsBusy() {
-			rf.SetUserState(None)
+		rf.role = Follower
+		rf.maxId = 0
+		if rf.state != None {
+			rf.state = None
 			rf.abort <- struct{}{}
+			<-rf.abort
 		}
 		go rf.startRecvHeartBeats()
 	}

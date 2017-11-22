@@ -4,6 +4,7 @@ import (
 	"time"
 	"math/rand"
 	"fmt"
+	"bytes"
 )
 
 // return a time that will in rand [150,300) ms
@@ -92,7 +93,20 @@ func (rf *Raft) StateStr() string {
 
 func (rf *Raft) DebugStr() string {
 	return fmt.Sprintf("%d: term %d role %s state %s votefor:%d logs:%v commit:%d applyed:%d next:%v\n",
-		rf.me, rf.currentTerm, rf.RoleStr(), rf.StateStr(), rf.votedFor, rf.logs, rf.commitIndex, rf.lastApplied, rf.nextIndex)
+		rf.me, rf.currentTerm, rf.RoleStr(), rf.StateStr(), rf.votedFor, rf.logsStr(), rf.commitIndex, rf.lastApplied, rf.nextIndex)
+}
+
+func (rf *Raft) logsStr() string {
+	buf := bytes.Buffer{}
+	buf.WriteByte('[')
+	for i, l := range rf.logs {
+		if i > 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(fmt.Sprintf("{i:%d t:%d c:%v}", i, l.Term, l.Content))
+	}
+	buf.WriteByte(']')
+	return buf.String()
 }
 
 func (rf *Raft) CommitStr() string {
