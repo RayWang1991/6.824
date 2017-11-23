@@ -161,7 +161,7 @@ func (cfg *config) start1(i int) {
 				cfg.mu.Unlock()
 
 				if m.Index > 1 && prevok == false {
-					err_msg = fmt.Sprintf("%v server %v apply out of order %v",cfg.logs[i], i, m.Index)
+					err_msg = fmt.Sprintf("%v server %v apply out of order %v", cfg.logs[i], i, m.Index)
 				}
 			} else {
 				err_msg = fmt.Sprintf("committed command %v is not an int", m.Command)
@@ -401,7 +401,8 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			if rf != nil {
 				index1, _, ok := rf.Start(cmd)
 				if ok {
-					fmt.Printf("Got cmtIdx %d\n", index1)
+					//debug
+					//fmt.Printf("Got cmtIdx %d\n", index1)
 					index = index1
 					break
 				}
@@ -427,6 +428,10 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
+	////debug
+	//for _, r := range cfg.rafts {
+	//	r.Kill()
+	//}
 	cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
 	return -1
 }
