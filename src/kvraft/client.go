@@ -7,6 +7,7 @@ import "math/big"
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	id int // id for client
 }
 
 func nrand() int64 {
@@ -21,6 +22,17 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck.servers = servers
 	// You'll have to add code here.
 	return ck
+}
+
+type RPCArg struct {
+	Key string
+	ID  int
+}
+
+type RPCReply struct {
+	Key string
+	Val string
+	Err error
 }
 
 //
