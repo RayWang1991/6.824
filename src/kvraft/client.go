@@ -74,26 +74,29 @@ func (ck *Clerk) ReOrderedServers(newLeader int) {
 func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
-	arg := GetArgs{
-		Key: key,
-	}
-
-	reply := GetReply{
-	}
 
 	gotRes := false
 	val := ""
 
 	for !gotRes {
 		for i, serv := range ck.orderdServers {
+			arg := GetArgs{
+				Key: key,
+			}
+
+			reply := GetReply{
+			}
 			ok := serv.Call("RaftKV.Get", &arg, &reply)
+			DClientPrintf("Get Client Got ok %t serv %d wrongL %t K %s V %s Err %s\n", ok, reply.ServId, reply.WrongLeader, arg.Key, reply.Value, reply.Err)
 			if !ok || reply.WrongLeader || reply.Err != "" {
 				continue
 			}
+			gotRes = true
 			val = reply.Value
 			if i != ck.lastLeader {
 				ck.ReOrderedServers(i)
 			}
+			break
 		}
 	}
 	return val
@@ -111,6 +114,30 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+
+	gotRes := false
+
+	for !gotRes {
+		for i, serv := range ck.orderdServers {
+			arg := PutAppendArgs{
+				Key:   key,
+				Value: value,
+				Op:    op,
+			}
+			reply := PutAppendReply{
+			}
+			ok := serv.Call("RaftKV.PutAppend", &arg, &reply)
+			DClientPrintf("PutAppend Client Got ok %t serv %d wrongL %t Err%s\n", ok, reply.ServId, reply.WrongLeader, reply.Err)
+			if !ok || reply.WrongLeader || reply.Err != "" {
+				continue
+			}
+			gotRes = true
+			if i != ck.lastLeader {
+				ck.ReOrderedServers(i)
+			}
+			break
+		}
+	}
 }
 
 func (ck *Clerk) Put(key string, value string) {
