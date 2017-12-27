@@ -4,10 +4,14 @@ import "6.824/src/labrpc"
 import "crypto/rand"
 import "math/big"
 
+var idPool = 0
+
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
-	id int // id for client
+	id            int // id for client
+	lastLeader    int
+	orderdServers []*labrpc.ClientEnd
 }
 
 func nrand() int64 {
@@ -20,10 +24,16 @@ func nrand() int64 {
 func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
+	ck.orderdServers = make([]*labrpc.ClientEnd, 0, len(servers))
+	ck.ReOrderedServers(0)
+	// here assume the index of the servers do not change
+	ck.id = idPool
+	idPool++
 	// You'll have to add code here.
 	return ck
 }
 
+/*
 type RPCArg struct {
 	Key string
 	ID  int
@@ -33,6 +43,20 @@ type RPCReply struct {
 	Key string
 	Val string
 	Err error
+}
+*/
+
+// helper method to resort the servers, last leader to be first
+func (ck *Clerk) ReOrderedServers(newLeader int) {
+	ck.lastLeader = newLeader
+	ck.orderdServers = ck.orderdServers[:0]
+	ck.orderdServers = append(ck.orderdServers, ck.servers[ck.lastLeader])
+	for i, serv := range ck.servers {
+		if i == ck.lastLeader {
+			continue
+		}
+		ck.orderdServers = append(ck.orderdServers, serv)
+	}
 }
 
 //
@@ -50,7 +74,29 @@ type RPCReply struct {
 func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
-	return ""
+	arg := GetArgs{
+		Key: key,
+	}
+
+	reply := GetReply{
+	}
+
+	gotRes := false
+	val := ""
+
+	for !gotRes {
+		for i, serv := range ck.orderdServers {
+			ok := serv.Call("RaftKV.Get", &arg, &reply)
+			if !ok || reply.WrongLeader || reply.Err != "" {
+				continue
+			}
+			val = reply.Value
+			if i != ck.lastLeader {
+				ck.ReOrderedServers(i)
+			}
+		}
+	}
+	return val
 }
 
 //

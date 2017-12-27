@@ -4,18 +4,8 @@ import (
 	"6.824/src/labrpc"
 	"6.824/src/raft"
 	"encoding/gob"
-	"log"
 	"sync"
 )
-
-const Debug = 0
-
-func DPrintf(format string, a ...interface{}) (n int, err error) {
-	if Debug > 0 {
-		log.Printf(format, a...)
-	}
-	return
-}
 
 type Op struct {
 	// Your definitions here.
