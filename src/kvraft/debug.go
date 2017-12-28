@@ -6,7 +6,7 @@ import (
 )
 
 // Debugging
-const Debug = 0
+const Debug = 1
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
 	if Debug > 0 {
@@ -16,28 +16,28 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-const VoteDebugFlag = true
+const ServerDebugFlag = true
 
-func DVotePrintf(fmt string, a ...interface{}) (n int, err error) {
-	if VoteDebugFlag {
+func DServPrintf(fmt string, a ...interface{}) (n int, err error) {
+	if ServerDebugFlag {
 		return DPrintf(fmt, a...)
 	}
 	return
 }
 
-const HeartBeatDebugFlag = true
+const ClientDebugFlag = true
 
-func DHBPrintf(fmt string, a ...interface{}) (n int, err error) {
-	if HeartBeatDebugFlag {
+func DClientPrintf(fmt string, a ...interface{}) (n int, err error) {
+	if ClientDebugFlag {
 		return DPrintf(fmt, a...)
 	}
 	return
 }
 
-const LogDebugFlag = true
+const AplRecvDebugFlag = true
 
-func DLogPrintf(fmt string, a ...interface{}) (n int, err error) {
-	if LogDebugFlag {
+func DAplRecvPrintf(fmt string, a ...interface{}) (n int, err error) {
+	if AplRecvDebugFlag {
 		return DPrintf(fmt, a...)
 	}
 	return

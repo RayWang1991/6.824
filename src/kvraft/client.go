@@ -87,7 +87,8 @@ func (ck *Clerk) Get(key string) string {
 			reply := GetReply{
 			}
 			ok := serv.Call("RaftKV.Get", &arg, &reply)
-			DClientPrintf("Get Client Got ok %t serv %d wrongL %t K %s V %s Err %s\n", ok, reply.ServId, reply.WrongLeader, arg.Key, reply.Value, reply.Err)
+			DClientPrintf("Get Client Got ok %t serv %d wrongL %t K %s V %s Err %s\n",
+				ok, reply.ServId, reply.WrongLeader, arg.Key, reply.Value, reply.Err)
 			if !ok || reply.WrongLeader || reply.Err != "" {
 				continue
 			}
@@ -127,7 +128,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			reply := PutAppendReply{
 			}
 			ok := serv.Call("RaftKV.PutAppend", &arg, &reply)
-			DClientPrintf("PutAppend Client Got ok %t serv %d wrongL %t Err%s\n", ok, reply.ServId, reply.WrongLeader, reply.Err)
+			DClientPrintf("PutAppend Client Got ok %t serv %d wrongL %t Err %s\n", ok, reply.ServId, reply.WrongLeader, reply.Err)
 			if !ok || reply.WrongLeader || reply.Err != "" {
 				continue
 			}
