@@ -92,6 +92,8 @@ func (kv *RaftKV) disposeAplMsg() {
 
 func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
 	key := args.Key
 	cKey := kv.commendIndexKey("Get")
 	wrap := wrapCKV(cKey, key, "")
@@ -124,6 +126,8 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 
 func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
 	key := args.Key
 	val := args.Value
 	cKey := kv.commendIndexKey(args.Op)
