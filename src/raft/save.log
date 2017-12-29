@@ -1,0 +1,692 @@
+Test: Figure 8 (unreliable) ...
+Become Candidate 4 Term -1
+Start Election for 4 on Term 0
+Send Vote Req to 0 from 4 on Term 0
+Send Vote Req to 1 from 4 on Term 0
+Send Vote Req to 2 from 4 on Term 0
+Send Vote Req to 3 from 4 on Term 0
+Vote Request term:0 -1, sed,recv:4 3
+receiver: 3: term -1 role Follower state RecvHB votefor:-1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 0 > -1
+Win vote recv 3 sender 4 lastLogTerm -1 lastLogIndex-1
+Agree on asking Request Vote to 4 from 3
+Become Candidate 2 Term -1
+Start Election for 2 on Term 0
+Send Vote Req to 0 from 2 on Term 0
+Send Vote Req to 1 from 2 on Term 0
+Send Vote Req to 3 from 2 on Term 0
+Send Vote Req to 4 from 2 on Term 0
+Vote Request term:0 0, sed,recv:4 2
+receiver: 2: term 0 role Candidate state Election votefor:2 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 2 sender 4 vote for 2 send log indx -1 term -1 recv
+Vote Request term:0 -1, sed,recv:4 1
+receiver: 1: term -1 role Follower state RecvHB votefor:-1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 0 > -1
+Win vote recv 1 sender 4 lastLogTerm -1 lastLogIndex-1
+Agree on asking Request Vote to 4 from 1
+Become Leader 4 Term 0
+Vote Request term:0 -1, sed,recv:4 0
+receiver: 0: term -1 role Follower state RecvHB votefor:-1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 0 > -1
+Win vote recv 0 sender 4 lastLogTerm -1 lastLogIndex-1
+Drain reply Channel V for Request Vote for 4 on Term 0
+[Command] 7320 on 4, Leader Term:0
+Become Candidate 3 Term 0
+Start Election for 3 on Term 1
+Send Vote Req to 0 from 3 on Term 1
+Send Vote Req to 1 from 3 on Term 1
+Send Vote Req to 2 from 3 on Term 1
+Send Vote Req to 4 from 3 on Term 1
+Send RequestVote sender 3 to 2 [failed, Error]
+Vote Request term:0 0, sed,recv:2 0
+receiver: 0: term 0 role Follower state RecvHB votefor:4 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 0 sender 2 vote for 4 send log indx -1 term -1 recv
+Send RequestVote sender 2 to 0 [failed, Error]
+Become Follower 4 Term 1
+Become Follower 2 Term 0
+Election aborted 2
+Vote Request term:0 1, sed,recv:2 3
+receiver: 3: term 1 role Candidate state Election votefor:3 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 2 vote for 3 send log indx -1 term -1 recv
+Vote Request term:1 1, sed,recv:3 4
+receiver: 4: term 1 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 3 vote for -1 send log indx -1 term -1 recv
+Vote Request term:1 0, sed,recv:3 1
+receiver: 1: term 0 role Follower state RecvHB votefor:4 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 1 > 0
+Win vote recv 1 sender 3 lastLogTerm -1 lastLogIndex-1
+Send RequestVote sender 2 to 1 [failed, Error]
+Agree on asking Request Vote to 3 from 1
+Vote Request term:0 1, sed,recv:2 4
+receiver: 4: term 1 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 2 vote for -1 send log indx -1 term -1 recv
+Drain reply Channel V for Request Vote for 2 on Term 0
+Vote Request term:1 0, sed,recv:3 0
+receiver: 0: term 0 role Follower state RecvHB votefor:4 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 1 > 0
+Lose vote recv 0 sender 3 vote for -1 send log indx -1 term -1 recv
+Become Candidate 1 Term 1
+Start Election for 1 on Term 2
+Send Vote Req to 0 from 1 on Term 2
+Send Vote Req to 2 from 1 on Term 2
+Send Vote Req to 3 from 1 on Term 2
+Send Vote Req to 4 from 1 on Term 2
+Send RequestVote sender 1 to 4 [failed, Error]
+Vote Request term:2 0, sed,recv:1 2
+receiver: 2: term 0 role Follower state RecvHB votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 2 > 0
+Lose vote recv 2 sender 1 vote for -1 send log indx -1 term -1 recv
+Send RequestVote sender 1 to 0 [failed, Error]
+Vote Request term:2 1, sed,recv:1 3
+receiver: 3: term 1 role Candidate state Election votefor:3 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 2 > 1
+Become Follower 3 Term 2
+Election aborted 3
+Win vote recv 3 sender 1 lastLogTerm -1 lastLogIndex-1
+Drain reply Channel V for Request Vote for 3 on Term 2
+Agree on asking Request Vote to 1 from 3
+Become Candidate 0 Term 1
+Start Election for 0 on Term 2
+Send Vote Req to 1 from 0 on Term 2
+Send Vote Req to 2 from 0 on Term 2
+Send Vote Req to 3 from 0 on Term 2
+Send Vote Req to 4 from 0 on Term 2
+Send RequestVote sender 0 to 1 [failed, Error]
+Vote Request term:2 2, sed,recv:0 3
+receiver: 3: term 2 role Follower state RecvHB votefor:1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 0 vote for 1 send log indx 0 term 0 recv
+Vote Request term:2 1, sed,recv:0 4
+receiver: 4: term 1 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 2 > 1
+Win vote recv 4 sender 0 lastLogTerm 0 lastLogIndex0
+Agree on asking Request Vote to 0 from 4
+Send RequestVote sender 0 to 2 [failed, Error]
+Become Candidate 4 Term 2
+Start Election for 4 on Term 3
+Send Vote Req to 0 from 4 on Term 3
+Send Vote Req to 1 from 4 on Term 3
+Send Vote Req to 2 from 4 on Term 3
+Send Vote Req to 3 from 4 on Term 3
+Start Election for 1 on Term 3
+Send Vote Req to 0 from 1 on Term 3
+Send Vote Req to 2 from 1 on Term 3
+Send Vote Req to 3 from 1 on Term 3
+Send Vote Req to 4 from 1 on Term 3
+Drain reply Channel V for Request Vote for 1 on Term 2
+Vote Request term:3 2, sed,recv:1 3
+receiver: 3: term 2 role Follower state RecvHB votefor:1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 3 > 2
+Win vote recv 3 sender 1 lastLogTerm -1 lastLogIndex-1
+Agree on asking Request Vote to 1 from 3
+Become Candidate 2 Term 2
+Start Election for 2 on Term 3
+Send Vote Req to 0 from 2 on Term 3
+Send Vote Req to 1 from 2 on Term 3
+Send Vote Req to 3 from 2 on Term 3
+Send Vote Req to 4 from 2 on Term 3
+Vote Request term:3 3, sed,recv:1 4
+receiver: 4: term 3 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 1 vote for 4 send log indx -1 term -1 recv
+Vote Request term:3 3, sed,recv:4 3
+receiver: 3: term 3 role Follower state RecvHB votefor:1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 4 vote for 1 send log indx 0 term 0 recv
+Vote Request term:3 3, sed,recv:2 1
+receiver: 1: term 3 role Candidate state Election votefor:1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 1 sender 2 vote for 1 send log indx 0 term 0 recv
+Vote Request term:3 3, sed,recv:4 1
+receiver: 1: term 3 role Candidate state Election votefor:1 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 1 sender 4 vote for 1 send log indx 0 term 0 recv
+Vote Request term:3 3, sed,recv:1 2
+receiver: 2: term 3 role Candidate state Election votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 2 sender 1 vote for 2 send log indx -1 term -1 recv
+Vote Request term:3 2, sed,recv:2 0
+receiver: 0: term 2 role Candidate state Election votefor:0 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 3 > 2
+Become Follower 0 Term 3
+Election aborted 0
+Win vote recv 0 sender 2 lastLogTerm 0 lastLogIndex0
+Drain reply Channel V for Request Vote for 0 on Term 3
+Agree on asking Request Vote to 2 from 0
+Vote Request term:3 3, sed,recv:2 4
+receiver: 4: term 3 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 2 vote for 4 send log indx 0 term 0 recv
+Send RequestVote sender 2 to 3 [failed, Error]
+Vote Request term:3 3, sed,recv:1 0
+receiver: 0: term 3 role Follower state RecvHB votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 0 sender 1 vote for 2 send log indx -1 term -1 recv
+Vote Request term:3 3, sed,recv:4 0
+receiver: 0: term 3 role Follower state RecvHB votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 0 sender 4 vote for 2 send log indx 0 term 0 recv
+Vote Request term:3 3, sed,recv:4 2
+receiver: 2: term 3 role Candidate state Election votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 2 sender 4 vote for 2 send log indx 0 term 0 recv
+Become Candidate 3 Term 3
+Start Election for 3 on Term 4
+Send Vote Req to 0 from 3 on Term 4
+Send Vote Req to 1 from 3 on Term 4
+Send Vote Req to 2 from 3 on Term 4
+Send Vote Req to 4 from 3 on Term 4
+Vote Request term:4 3, sed,recv:3 0
+receiver: 0: term 3 role Follower state RecvHB votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Vote Request term:4 3, sed,recv:3 2
+receiver: 2: term 3 role Candidate state Election votefor:2 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 4 > 3
+Become Follower 2 Term 4
+term change 4 > 3
+Lose vote recv 0 sender 3 vote for -1 send log indx -1 term -1 recv
+Election aborted 2
+Lose vote recv 2 sender 3 vote for -1 send log indx -1 term -1 recv
+Drain reply Channel V for Request Vote for 2 on Term 4
+Send RequestVote sender 3 to 1 [failed, Error]
+Vote Request term:4 3, sed,recv:3 4
+receiver: 4: term 3 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 4 > 3
+Become Follower 4 Term 4
+Election aborted 4
+Lose vote recv 4 sender 3 vote for -1 send log indx -1 term -1 recv
+Drain reply Channel V for Request Vote for 4 on Term 4
+Start Election for 1 on Term 4
+Drain reply Channel V for Request Vote for 1 on Term 3
+Send Vote Req to 0 from 1 on Term 4
+Send Vote Req to 2 from 1 on Term 4
+Send Vote Req to 3 from 1 on Term 4
+Send Vote Req to 4 from 1 on Term 4
+Vote Request term:4 4, sed,recv:1 0
+receiver: 0: term 4 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 0 sender 1 vote for -1 send log indx -1 term -1 recv
+Vote Request term:4 4, sed,recv:1 3
+receiver: 3: term 4 role Candidate state Election votefor:3 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 1 vote for 3 send log indx -1 term -1 recv
+Vote Request term:4 4, sed,recv:1 4
+receiver: 4: term 4 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 1 vote for -1 send log indx -1 term -1 recv
+Vote Request term:4 4, sed,recv:1 2
+receiver: 2: term 4 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 2 sender 1 vote for -1 send log indx -1 term -1 recv
+Become Candidate 0 Term 4
+Start Election for 0 on Term 5
+Send Vote Req to 1 from 0 on Term 5
+Send Vote Req to 2 from 0 on Term 5
+Send Vote Req to 3 from 0 on Term 5
+Send Vote Req to 4 from 0 on Term 5
+Send RequestVote sender 0 to 1 [failed, Error]
+Vote Request term:5 4, sed,recv:0 3
+receiver: 3: term 4 role Candidate state Election votefor:3 logs:[] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 5 > 4
+Become Follower 3 Term 5
+Election aborted 3
+Win vote recv 3 sender 0 lastLogTerm 0 lastLogIndex0
+Drain reply Channel V for Request Vote for 3 on Term 5
+Agree on asking Request Vote to 0 from 3
+Vote Request term:5 4, sed,recv:0 2
+receiver: 2: term 4 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 5 > 4
+Win vote recv 2 sender 0 lastLogTerm 0 lastLogIndex0
+Agree on asking Request Vote to 0 from 2
+Become Leader 0 Term 5
+Vote Request term:5 4, sed,recv:0 4
+receiver: 4: term 4 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320}] commit:0 applyed:0 next:[-1 -1 -1 -1 -1]
+
+term change 5 > 4
+Win vote recv 4 sender 0 lastLogTerm 0 lastLogIndex0
+Drain reply Channel V for Request Vote for 0 on Term 5
+Become Follower 1 Term 5
+Election aborted 1
+Drain reply Channel V for Request Vote for 1 on Term 5
+Done Apply 7320 ind 1 [APPLYEE] 0
+[Command] 7874 on 0, Leader Term:5
+disconnect(0)
+[Command] 9866 on 0, Leader Term:5
+Done Apply 7320 ind 1 [APPLYEE] 2
+Done Apply 7320 ind 1 [APPLYEE] 4
+[Command] 5412 on 0, Leader Term:5
+Done Apply 7320 ind 1 [APPLYEE] 1
+[Command] 2068 on 0, Leader Term:5
+[Command] 1625 on 0, Leader Term:5
+Done Apply 7320 ind 1 [APPLYEE] 3
+[Command] 3631 on 0, Leader Term:5
+[Command] 4816 on 0, Leader Term:5
+[Command] 5640 on 0, Leader Term:5
+[Command] 7883 on 0, Leader Term:5
+[Command] 8496 on 0, Leader Term:5
+[Command] 2276 on 0, Leader Term:5
+[Command] 4446 on 0, Leader Term:5
+[Command] 4987 on 0, Leader Term:5
+[Command] 1017 on 0, Leader Term:5
+[Command] 4347 on 0, Leader Term:5
+[Command] 7127 on 0, Leader Term:5
+Become Candidate 2 Term 5
+Start Election for 2 on Term 6
+Send Vote Req to 0 from 2 on Term 6
+Send Vote Req to 1 from 2 on Term 6
+Send Vote Req to 3 from 2 on Term 6
+Send Vote Req to 4 from 2 on Term 6
+[Command] 9515 on 0, Leader Term:5
+Vote Request term:6 5, sed,recv:2 4
+receiver: 4: term 5 role Follower state RecvHB votefor:0 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874}] commit:1 applyed:1 next:[-1 -1 -1 -1 -1]
+
+term change 6 > 5
+Win vote recv 4 sender 2 lastLogTerm 5 lastLogIndex1
+Agree on asking Request Vote to 2 from 4
+Vote Request term:6 5, sed,recv:2 1
+receiver: 1: term 5 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874}] commit:1 applyed:1 next:[-1 -1 -1 -1 -1]
+
+term change 6 > 5
+Win vote recv 1 sender 2 lastLogTerm 5 lastLogIndex1
+Agree on asking Request Vote to 2 from 1
+Become Leader 2 Term 6
+[Command] 7120 on 0, Leader Term:5
+[Command] 9130 on 2, Leader Term:6
+
+Vote Request term:6 6, sed,recv:2 3
+receiver: 3: term 6 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874}] commit:1 applyed:1 next:[-1 -1 -1 -1 -1]
+
+Win vote recv 3 sender 2 lastLogTerm 5 lastLogIndex1
+Done Apply 7874 ind 2 [APPLYEE] 2
+Done Apply 9130 ind 3 [APPLYEE] 2
+Done Apply 7874 ind 2 [APPLYEE] 1
+Done Apply 9130 ind 3 [APPLYEE] 1
+Done Apply 7874 ind 2 [APPLYEE] 4
+Done Apply 9130 ind 3 [APPLYEE] 4
+Done Apply 7874 ind 2 [APPLYEE] 3
+Done Apply 9130 ind 3 [APPLYEE] 3
+disconnect(2)
+[Command] 7955 on 0, Leader Term:5
+[Command] 2405 on 2, Leader Term:6
+Become Candidate 4 Term 6
+Start Election for 4 on Term 7
+Send Vote Req to 0 from 4 on Term 7
+Send Vote Req to 1 from 4 on Term 7
+Send Vote Req to 2 from 4 on Term 7
+Send Vote Req to 3 from 4 on Term 7
+Vote Request term:7 6, sed,recv:4 1
+receiver: 1: term 6 role Follower state RecvHB votefor:2 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 7 > 6
+Win vote recv 1 sender 4 lastLogTerm 6 lastLogIndex2
+Agree on asking Request Vote to 4 from 1
+[Command] 4031 on 0, Leader Term:5
+[Command] 7998 on 2, Leader Term:6
+[Command] 8237 on 0, Leader Term:5
+[Command] 2710 on 2, Leader Term:6
+[Command] 5677 on 0, Leader Term:5
+[Command] 9908 on 2, Leader Term:6
+Become Candidate 3 Term 6
+Start Election for 3 on Term 7
+Send Vote Req to 0 from 3 on Term 7
+Send Vote Req to 1 from 3 on Term 7
+Send Vote Req to 2 from 3 on Term 7
+Send Vote Req to 4 from 3 on Term 7
+Vote Request term:7 7, sed,recv:3 4
+receiver: 4: term 7 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 3 vote for 4 send log indx 2 term 6 recv
+Vote Request term:7 7, sed,recv:3 1
+receiver: 1: term 7 role Follower state RecvHB votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 1 sender 3 vote for 4 send log indx 2 term 6 recv
+Vote Request term:7 7, sed,recv:4 3
+receiver: 3: term 7 role Candidate state Election votefor:3 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 4 vote for 3 send log indx 2 term 6 recv
+Become Candidate 1 Term 7
+Start Election for 1 on Term 8
+Send Vote Req to 0 from 1 on Term 8
+Send Vote Req to 2 from 1 on Term 8
+Send Vote Req to 3 from 1 on Term 8
+Send Vote Req to 4 from 1 on Term 8
+Send RequestVote sender 1 to 4 [failed, Error]
+Vote Request term:8 7, sed,recv:1 3
+receiver: 3: term 7 role Candidate state Election votefor:3 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 8 > 7
+Become Follower 3 Term 8
+Election aborted 3
+Win vote recv 3 sender 1 lastLogTerm 6 lastLogIndex2
+Agree on asking Request Vote to 1 from 3
+Start Election for 4 on Term 8
+Send Vote Req to 0 from 4 on Term 8
+Send Vote Req to 1 from 4 on Term 8
+Send Vote Req to 2 from 4 on Term 8
+Send Vote Req to 3 from 4 on Term 8
+Vote Request term:8 8, sed,recv:4 3
+receiver: 3: term 8 role Follower state RecvHB votefor:1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 3 sender 4 vote for 1 send log indx 2 term 6 recv
+Vote Request term:8 8, sed,recv:4 1
+receiver: 1: term 8 role Candidate state Election votefor:1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 1 sender 4 vote for 1 send log indx 2 term 6 recv
+[Command] 1354 on 0, Leader Term:5
+[Command] 1860 on 2, Leader Term:6
+[Command] 1987 on 0, Leader Term:5
+[Command] 5762 on 2, Leader Term:6
+[Command] 6148 on 0, Leader Term:5
+[Command] 3592 on 2, Leader Term:6
+[Command] 6954 on 0, Leader Term:5
+[Command] 5446 on 2, Leader Term:6
+[Command] 253 on 0, Leader Term:5
+[Command] 6038 on 2, Leader Term:6
+[Command] 2314 on 0, Leader Term:5
+[Command] 27 on 2, Leader Term:6
+Become Candidate 3 Term 8
+Start Election for 3 on Term 9
+Send Vote Req to 0 from 3 on Term 9
+Send Vote Req to 1 from 3 on Term 9
+Send Vote Req to 2 from 3 on Term 9
+Send Vote Req to 4 from 3 on Term 9
+[Command] 1073 on 0, Leader Term:5
+[Command] 5616 on 2, Leader Term:6
+[Command] 4415 on 0, Leader Term:5
+[Command] 8918 on 2, Leader Term:6
+Vote Request term:9 8, sed,recv:3 1
+receiver: 1: term 8 role Candidate state Election votefor:1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 9 > 8
+Become Follower 1 Term 9
+Election aborted 1
+Win vote recv 1 sender 3 lastLogTerm 6 lastLogIndex2
+[Command] 4148 on 0, Leader Term:5
+Agree on asking Request Vote to 3 from 1
+[Command] 2850 on 2, Leader Term:6
+Vote Request term:9 8, sed,recv:3 4
+receiver: 4: term 8 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 9 > 8
+Become Follower 4 Term 9
+Election aborted 4
+Win vote recv 4 sender 3 lastLogTerm 6 lastLogIndex2
+Agree on asking Request Vote to 3 from 4
+Become Leader 3 Term 9
+
+[Command] 8497 on 0, Leader Term:5
+[Command] 2811 on 2, Leader Term:6
+[Command] 4099 on 3, Leader Term:9
+disconnect(3)
+[Command] 8235 on 0, Leader Term:5
+[Command] 3214 on 2, Leader Term:6
+[Command] 6560 on 3, Leader Term:9
+connect(0)
+[Command] 1128 on 0, Leader Term:5
+[Command] 7367 on 2, Leader Term:6
+[Command] 4769 on 3, Leader Term:9
+disconnect(0)
+connect(3)
+[Command] 7234 on 0, Leader Term:5
+[Command] 85 on 2, Leader Term:6
+[Command] 4733 on 3, Leader Term:9
+disconnect(3)
+[Command] 1620 on 0, Leader Term:5
+[Command] 655 on 2, Leader Term:6
+[Command] 6537 on 3, Leader Term:9
+[Command] 2542 on 0, Leader Term:5
+[Command] 7740 on 2, Leader Term:6
+[Command] 3967 on 3, Leader Term:9
+[Command] 67 on 0, Leader Term:5
+[Command] 804 on 2, Leader Term:6
+[Command] 8311 on 3, Leader Term:9
+Become Candidate 4 Term 9
+Start Election for 4 on Term 10
+Send Vote Req to 0 from 4 on Term 10
+Send Vote Req to 1 from 4 on Term 10
+Send Vote Req to 2 from 4 on Term 10
+Send Vote Req to 3 from 4 on Term 10
+connect(3)
+[Command] 8011 on 0, Leader Term:5
+[Command] 1384 on 2, Leader Term:6
+[Command] 3133 on 3, Leader Term:9
+[Command] 3610 on 0, Leader Term:5
+Become Candidate 1 Term 9
+Start Election for 1 on Term 10
+Send Vote Req to 0 from 1 on Term 10
+Send Vote Req to 2 from 1 on Term 10
+Send Vote Req to 3 from 1 on Term 10
+Send Vote Req to 4 from 1 on Term 10
+[Command] 6066 on 2, Leader Term:6
+[Command] 5160 on 3, Leader Term:9
+Become Follower 3 Term 10
+Vote Request term:10 10, sed,recv:1 4
+receiver: 4: term 10 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 4 sender 1 vote for 4 send log indx 6 term 9 recv
+Vote Request term:10 10, sed,recv:4 1
+receiver: 1: term 10 role Candidate state Election votefor:1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+Lose vote recv 1 sender 4 vote for 1 send log indx 6 term 9 recv
+Vote Request term:10 10, sed,recv:1 3
+receiver: 3: term 10 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733} {i:7 t:9 c:6537} {i:8 t:9 c:3967} {i:9 t:9 c:8311} {i:10 t:9 c:3133} {i:11 t:9 c:5160}] commit:3 applyed:3 next:[2 2 2 -1 2]
+
+Lose vote recv 3 sender 1 vote for -1 send log indx 6 term 9 recv
+[Command] 1921 on 0, Leader Term:5
+[Command] 5592 on 2, Leader Term:6
+[Command] 3330 on 0, Leader Term:5
+[Command] 2008 on 2, Leader Term:6
+[Command] 9652 on 0, Leader Term:5
+[Command] 5005 on 2, Leader Term:6
+[Command] 9650 on 0, Leader Term:5
+[Command] 9548 on 2, Leader Term:6
+[Command] 5721 on 0, Leader Term:5
+[Command] 7820 on 2, Leader Term:6
+[Command] 7406 on 0, Leader Term:5
+[Command] 3925 on 2, Leader Term:6
+[Command] 8614 on 0, Leader Term:5
+[Command] 3097 on 2, Leader Term:6
+[Command] 6755 on 0, Leader Term:5
+[Command] 9727 on 2, Leader Term:6
+[Command] 336 on 0, Leader Term:5
+[Command] 1744 on 2, Leader Term:6
+[Command] 1132 on 0, Leader Term:5
+[Command] 400 on 2, Leader Term:6
+[Command] 5433 on 0, Leader Term:5
+[Command] 1495 on 2, Leader Term:6
+[Command] 7354 on 0, Leader Term:5
+[Command] 4440 on 2, Leader Term:6
+[Command] 2554 on 0, Leader Term:5
+[Command] 5453 on 2, Leader Term:6
+[Command] 2124 on 0, Leader Term:5
+[Command] 2212 on 2, Leader Term:6
+[Command] 1390 on 0, Leader Term:5
+[Command] 45 on 2, Leader Term:6
+[Command] 8900 on 0, Leader Term:5
+[Command] 8261 on 2, Leader Term:6
+[Command] 4465 on 0, Leader Term:5
+[Command] 1039 on 2, Leader Term:6
+[Command] 2927 on 0, Leader Term:5
+[Command] 1100 on 2, Leader Term:6
+[Command] 2955 on 0, Leader Term:5
+[Command] 9653 on 2, Leader Term:6
+[Command] 9768 on 0, Leader Term:5
+[Command] 6588 on 2, Leader Term:6
+[Command] 8387 on 0, Leader Term:5
+[Command] 8355 on 2, Leader Term:6
+Send RequestVote sender 4 to 0 [failed, Error]
+[Command] 1016 on 0, Leader Term:5
+[Command] 90 on 2, Leader Term:6
+[Command] 2660 on 0, Leader Term:5
+[Command] 1413 on 2, Leader Term:6
+[Command] 9718 on 0, Leader Term:5
+[Command] 7690 on 2, Leader Term:6
+Start Election for 4 on Term 11
+Send Vote Req to 0 from 4 on Term 11
+Send Vote Req to 1 from 4 on Term 11
+Send Vote Req to 2 from 4 on Term 11
+Send Vote Req to 3 from 4 on Term 11
+[Command] 8388 on 0, Leader Term:5
+[Command] 6433 on 2, Leader Term:6
+[Command] 6385 on 0, Leader Term:5
+[Command] 8908 on 2, Leader Term:6
+Vote Request term:11 10, sed,recv:4 1
+receiver: 1: term 10 role Candidate state Election votefor:1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 11 > 10
+Become Follower 1 Term 11
+Election aborted 1
+Win vote recv 1 sender 4 lastLogTerm 9 lastLogIndex6
+Agree on asking Request Vote to 4 from 1
+Vote Request term:11 10, sed,recv:4 3
+receiver: 3: term 10 role Follower state RecvHB votefor:-1 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733} {i:7 t:9 c:6537} {i:8 t:9 c:3967} {i:9 t:9 c:8311} {i:10 t:9 c:3133} {i:11 t:9 c:5160}] commit:3 applyed:3 next:[2 2 2 -1 2]
+
+term change 11 > 10
+Lose vote recv 3 sender 4 vote for -1 send log indx 6 term 9 recv
+[Command] 1814 on 0, Leader Term:5
+[Command] 1481 on 2, Leader Term:6
+[Command] 949 on 0, Leader Term:5
+[Command] 7131 on 2, Leader Term:6
+[Command] 8260 on 0, Leader Term:5
+[Command] 8392 on 2, Leader Term:6
+[Command] 9069 on 0, Leader Term:5
+[Command] 2099 on 2, Leader Term:6
+[Command] 4912 on 0, Leader Term:5
+[Command] 6732 on 2, Leader Term:6
+[Command] 7610 on 0, Leader Term:5
+[Command] 1919 on 2, Leader Term:6
+[Command] 1486 on 0, Leader Term:5
+[Command] 7133 on 2, Leader Term:6
+[Command] 6816 on 0, Leader Term:5
+[Command] 1800 on 2, Leader Term:6
+Become Candidate 3 Term 11
+
+Start Election for 3 on Term 12
+Send Vote Req to 0 from 3 on Term 12
+Send Vote Req to 1 from 3 on Term 12
+Send Vote Req to 2 from 3 on Term 12
+Send Vote Req to 4 from 3 on Term 12
+Vote Request term:12 11, sed,recv:3 4
+receiver: 4: term 11 role Candidate state Election votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 12 > 11
+Become Follower 4 Term 12
+Election aborted 4
+Win vote recv 4 sender 3 lastLogTerm 9 lastLogIndex11
+Agree on asking Request Vote to 3 from 4
+Vote Request term:12 11, sed,recv:3 1
+receiver: 1: term 11 role Follower state RecvHB votefor:4 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 12 > 11
+Win vote recv 1 sender 3 lastLogTerm 9 lastLogIndex11
+Agree on asking Request Vote to 3 from 1
+Become Leader 3 Term 12
+[Command] 5609 on 0, Leader Term:5
+[Command] 6533 on 2, Leader Term:6
+[Command] 6180 on 3, Leader Term:12
+[Command] 2516 on 0, Leader Term:5
+[Command] 8565 on 2, Leader Term:6
+[Command] 268 on 3, Leader Term:12
+[Command] 9389 on 0, Leader Term:5
+[Command] 4869 on 2, Leader Term:6
+[Command] 8773 on 3, Leader Term:12
+[Command] 5971 on 0, Leader Term:5
+[Command] 5712 on 2, Leader Term:6
+[Command] 286 on 3, Leader Term:12
+[Command] 6454 on 0, Leader Term:5
+[Command] 2555 on 2, Leader Term:6
+[Command] 2088 on 3, Leader Term:12
+[Command] 5514 on 0, Leader Term:5
+[Command] 2851 on 2, Leader Term:6
+[Command] 2872 on 3, Leader Term:12
+disconnect(3)
+connect(3)
+[Command] 4355 on 0, Leader Term:5
+[Command] 4151 on 2, Leader Term:6
+[Command] 4232 on 3, Leader Term:12
+[Command] 7074 on 0, Leader Term:5
+[Command] 3052 on 2, Leader Term:6
+[Command] 7677 on 3, Leader Term:12
+disconnect(3)
+connect(0)
+[Command] 6885 on 0, Leader Term:5
+[Command] 1801 on 2, Leader Term:6
+[Command] 8499 on 3, Leader Term:12
+[Command] 2294 on 0, Leader Term:5
+[Command] 7425 on 2, Leader Term:6
+[Command] 7123 on 3, Leader Term:12
+[Command] 4467 on 0, Leader Term:5
+[Command] 7848 on 2, Leader Term:6
+[Command] 8873 on 3, Leader Term:12
+[Command] 9778 on 0, Leader Term:5
+Become Follower 0 Term 12
+[Command] 4645 on 2, Leader Term:6
+[Command] 3135 on 3, Leader Term:12
+[Command] 6981 on 2, Leader Term:6
+[Command] 6106 on 3, Leader Term:12
+[Command] 2557 on 2, Leader Term:6
+[Command] 5709 on 3, Leader Term:12
+[Command] 7410 on 2, Leader Term:6
+[Command] 5093 on 3, Leader Term:12
+[Command] 7610 on 2, Leader Term:6
+[Command] 3072 on 3, Leader Term:12
+[Command] 2130 on 2, Leader Term:6
+[Command] 8550 on 3, Leader Term:12
+[Command] 530 on 2, Leader Term:6
+[Command] 405 on 3, Leader Term:12
+Become Candidate 0 Term 12
+Start Election for 0 on Term 13
+Send Vote Req to 1 from 0 on Term 13
+Send Vote Req to 2 from 0 on Term 13
+Send Vote Req to 3 from 0 on Term 13
+Send Vote Req to 4 from 0 on Term 13
+Vote Request term:13 12, sed,recv:0 1
+receiver: 1: term 12 role Follower state RecvHB votefor:3 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733} {i:7 t:9 c:6537} {i:8 t:9 c:3967} {i:9 t:9 c:8311} {i:10 t:9 c:3133} {i:11 t:9 c:5160} {i:12 t:12 c:6180} {i:13 t:12 c:268} {i:14 t:12 c:8773} {i:15 t:12 c:286} {i:16 t:12 c:2088} {i:17 t:12 c:2872} {i:18 t:12 c:4232} {i:19 t:12 c:7677}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 13 > 12
+Win vote recv 1 sender 0 lastLogTerm 12 lastLogIndex86
+Agree on asking Request Vote to 0 from 1
+Vote Request term:13 12, sed,recv:0 4
+receiver: 4: term 12 role Follower state RecvHB votefor:3 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733} {i:7 t:9 c:6537} {i:8 t:9 c:3967} {i:9 t:9 c:8311} {i:10 t:9 c:3133} {i:11 t:9 c:5160} {i:12 t:12 c:6180} {i:13 t:12 c:268} {i:14 t:12 c:8773} {i:15 t:12 c:286} {i:16 t:12 c:2088} {i:17 t:12 c:2872} {i:18 t:12 c:4232} {i:19 t:12 c:7677}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+
+term change 13 > 12
+Win vote recv 4 sender 0 lastLogTerm 12 lastLogIndex86
+Agree on asking Request Vote to 0 from 4
+Become Leader 0 Term 13
+Send RequestVote sender 3 to 0 [failed, Error]
+Done Apply 7874 ind 2 [APPLYEE] 0
+Done Apply 9866 ind 3 [APPLYEE] 0
+Kill peer 0
+0: term 13 role Leader state SendHB votefor:0 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:5 c:9866} {i:3 t:5 c:5412} {i:4 t:5 c:2068} {i:5 t:5 c:1625} {i:6 t:5 c:3631} {i:7 t:5 c:4816} {i:8 t:5 c:5640} {i:9 t:5 c:7883} {i:10 t:5 c:8496} {i:11 t:5 c:2276} {i:12 t:5 c:4446} {i:13 t:5 c:4987} {i:14 t:5 c:1017} {i:15 t:5 c:4347} {i:16 t:5 c:7127} {i:17 t:5 c:9515} {i:18 t:5 c:7120} {i:19 t:5 c:7955} {i:20 t:5 c:4031} {i:21 t:5 c:8237} {i:22 t:5 c:5677} {i:23 t:5 c:1354} {i:24 t:5 c:1987} {i:25 t:5 c:6148} {i:26 t:5 c:6954} {i:27 t:5 c:253} {i:28 t:5 c:2314} {i:29 t:5 c:1073} {i:30 t:5 c:4415} {i:31 t:5 c:4148} {i:32 t:5 c:8497} {i:33 t:5 c:8235} {i:34 t:5 c:1128} {i:35 t:5 c:7234} {i:36 t:5 c:1620} {i:37 t:5 c:2542} {i:38 t:5 c:67} {i:39 t:5 c:8011} {i:40 t:5 c:3610} {i:41 t:5 c:1921} {i:42 t:5 c:3330} {i:43 t:5 c:9652} {i:44 t:5 c:9650} {i:45 t:5 c:5721} {i:46 t:5 c:7406} {i:47 t:5 c:8614} {i:48 t:5 c:6755} {i:49 t:5 c:336} {i:50 t:5 c:1132} {i:51 t:5 c:5433} {i:52 t:5 c:7354} {i:53 t:5 c:2554} {i:54 t:5 c:2124} {i:55 t:5 c:1390} {i:56 t:5 c:8900} {i:57 t:5 c:4465} {i:58 t:5 c:2927} {i:59 t:5 c:2955} {i:60 t:5 c:9768} {i:61 t:5 c:8387} {i:62 t:5 c:1016} {i:63 t:5 c:2660} {i:64 t:5 c:9718} {i:65 t:5 c:8388} {i:66 t:5 c:6385} {i:67 t:5 c:1814} {i:68 t:5 c:949} {i:69 t:5 c:8260} {i:70 t:5 c:9069} {i:71 t:5 c:4912} {i:72 t:5 c:7610} {i:73 t:5 c:1486} {i:74 t:5 c:6816} {i:75 t:5 c:5609} {i:76 t:5 c:2516} {i:77 t:5 c:9389} {i:78 t:5 c:5971} {i:79 t:5 c:6454} {i:80 t:5 c:5514} {i:81 t:5 c:4355} {i:82 t:5 c:7074} {i:83 t:5 c:6885} {i:84 t:5 c:2294} {i:85 t:5 c:4467} {i:86 t:12 c:9778}] commit:87 applyed:4 next:[-1 86 86 86 -1]
+Kill peer 1
+1: term 13 role Follower state RecvHB votefor:0 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:5 c:9866} {i:3 t:5 c:5412} {i:4 t:5 c:2068} {i:5 t:5 c:1625} {i:6 t:5 c:3631} {i:7 t:5 c:4816} {i:8 t:5 c:5640} {i:9 t:5 c:7883} {i:10 t:5 c:8496} {i:11 t:5 c:2276} {i:12 t:5 c:4446} {i:13 t:5 c:4987} {i:14 t:5 c:1017} {i:15 t:5 c:4347} {i:16 t:5 c:7127} {i:17 t:5 c:9515} {i:18 t:5 c:7120} {i:19 t:5 c:7955} {i:20 t:5 c:4031} {i:21 t:5 c:8237} {i:22 t:5 c:5677} {i:23 t:5 c:1354} {i:24 t:5 c:1987} {i:25 t:5 c:6148} {i:26 t:5 c:6954} {i:27 t:5 c:253} {i:28 t:5 c:2314} {i:29 t:5 c:1073} {i:30 t:5 c:4415} {i:31 t:5 c:4148} {i:32 t:5 c:8497} {i:33 t:5 c:8235} {i:34 t:5 c:1128} {i:35 t:5 c:7234} {i:36 t:5 c:1620} {i:37 t:5 c:2542} {i:38 t:5 c:67} {i:39 t:5 c:8011} {i:40 t:5 c:3610} {i:41 t:5 c:1921} {i:42 t:5 c:3330} {i:43 t:5 c:9652} {i:44 t:5 c:9650} {i:45 t:5 c:5721} {i:46 t:5 c:7406} {i:47 t:5 c:8614} {i:48 t:5 c:6755} {i:49 t:5 c:336} {i:50 t:5 c:1132} {i:51 t:5 c:5433} {i:52 t:5 c:7354} {i:53 t:5 c:2554} {i:54 t:5 c:2124} {i:55 t:5 c:1390} {i:56 t:5 c:8900} {i:57 t:5 c:4465} {i:58 t:5 c:2927} {i:59 t:5 c:2955} {i:60 t:5 c:9768} {i:61 t:5 c:8387} {i:62 t:5 c:1016} {i:63 t:5 c:2660} {i:64 t:5 c:9718} {i:65 t:5 c:8388} {i:66 t:5 c:6385} {i:67 t:5 c:1814} {i:68 t:5 c:949} {i:69 t:5 c:8260} {i:70 t:5 c:9069} {i:71 t:5 c:4912} {i:72 t:5 c:7610} {i:73 t:5 c:1486} {i:74 t:5 c:6816} {i:75 t:5 c:5609} {i:76 t:5 c:2516} {i:77 t:5 c:9389} {i:78 t:5 c:5971} {i:79 t:5 c:6454} {i:80 t:5 c:5514} {i:81 t:5 c:4355} {i:82 t:5 c:7074} {i:83 t:5 c:6885} {i:84 t:5 c:2294} {i:85 t:5 c:4467} {i:86 t:12 c:9778}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+Kill peer 2
+2: term 6 role Leader state SendHB votefor:2 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:6 c:2405} {i:4 t:6 c:7998} {i:5 t:6 c:2710} {i:6 t:6 c:9908} {i:7 t:6 c:1860} {i:8 t:6 c:5762} {i:9 t:6 c:3592} {i:10 t:6 c:5446} {i:11 t:6 c:6038} {i:12 t:6 c:27} {i:13 t:6 c:5616} {i:14 t:6 c:8918} {i:15 t:6 c:2850} {i:16 t:6 c:2811} {i:17 t:6 c:3214} {i:18 t:6 c:7367} {i:19 t:6 c:85} {i:20 t:6 c:655} {i:21 t:6 c:7740} {i:22 t:6 c:804} {i:23 t:6 c:1384} {i:24 t:6 c:6066} {i:25 t:6 c:5592} {i:26 t:6 c:2008} {i:27 t:6 c:5005} {i:28 t:6 c:9548} {i:29 t:6 c:7820} {i:30 t:6 c:3925} {i:31 t:6 c:3097} {i:32 t:6 c:9727} {i:33 t:6 c:1744} {i:34 t:6 c:400} {i:35 t:6 c:1495} {i:36 t:6 c:4440} {i:37 t:6 c:5453} {i:38 t:6 c:2212} {i:39 t:6 c:45} {i:40 t:6 c:8261} {i:41 t:6 c:1039} {i:42 t:6 c:1100} {i:43 t:6 c:9653} {i:44 t:6 c:6588} {i:45 t:6 c:8355} {i:46 t:6 c:90} {i:47 t:6 c:1413} {i:48 t:6 c:7690} {i:49 t:6 c:6433} {i:50 t:6 c:8908} {i:51 t:6 c:1481} {i:52 t:6 c:7131} {i:53 t:6 c:8392} {i:54 t:6 c:2099} {i:55 t:6 c:6732} {i:56 t:6 c:1919} {i:57 t:6 c:7133} {i:58 t:6 c:1800} {i:59 t:6 c:6533} {i:60 t:6 c:8565} {i:61 t:6 c:4869} {i:62 t:6 c:5712} {i:63 t:6 c:2555} {i:64 t:6 c:2851} {i:65 t:6 c:4151} {i:66 t:6 c:3052} {i:67 t:6 c:1801} {i:68 t:6 c:7425} {i:69 t:6 c:7848} {i:70 t:6 c:4645} {i:71 t:6 c:6981} {i:72 t:6 c:2557} {i:73 t:6 c:7410} {i:74 t:6 c:7610} {i:75 t:6 c:2130} {i:76 t:6 c:530}] commit:3 applyed:3 next:[1 2 -1 2 2]
+Kill peer 3
+3: term 12 role Leader state SendHB votefor:3 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:6 c:9130} {i:3 t:9 c:4099} {i:4 t:9 c:6560} {i:5 t:9 c:4769} {i:6 t:9 c:4733} {i:7 t:9 c:6537} {i:8 t:9 c:3967} {i:9 t:9 c:8311} {i:10 t:9 c:3133} {i:11 t:9 c:5160} {i:12 t:12 c:6180} {i:13 t:12 c:268} {i:14 t:12 c:8773} {i:15 t:12 c:286} {i:16 t:12 c:2088} {i:17 t:12 c:2872} {i:18 t:12 c:4232} {i:19 t:12 c:7677} {i:20 t:12 c:8499} {i:21 t:12 c:7123} {i:22 t:12 c:8873} {i:23 t:12 c:3135} {i:24 t:12 c:6106} {i:25 t:12 c:5709} {i:26 t:12 c:5093} {i:27 t:12 c:3072} {i:28 t:12 c:8550} {i:29 t:12 c:405}] commit:3 applyed:3 next:[11 17 11 -1 13]
+Kill peer 4
+4: term 13 role Follower state RecvHB votefor:0 logs:[{i:0 t:0 c:7320} {i:1 t:5 c:7874} {i:2 t:5 c:9866} {i:3 t:5 c:5412} {i:4 t:5 c:2068} {i:5 t:5 c:1625} {i:6 t:5 c:3631} {i:7 t:5 c:4816} {i:8 t:5 c:5640} {i:9 t:5 c:7883} {i:10 t:5 c:8496} {i:11 t:5 c:2276} {i:12 t:5 c:4446} {i:13 t:5 c:4987} {i:14 t:5 c:1017} {i:15 t:5 c:4347} {i:16 t:5 c:7127} {i:17 t:5 c:9515} {i:18 t:5 c:7120} {i:19 t:5 c:7955} {i:20 t:5 c:4031} {i:21 t:5 c:8237} {i:22 t:5 c:5677} {i:23 t:5 c:1354} {i:24 t:5 c:1987} {i:25 t:5 c:6148} {i:26 t:5 c:6954} {i:27 t:5 c:253} {i:28 t:5 c:2314} {i:29 t:5 c:1073} {i:30 t:5 c:4415} {i:31 t:5 c:4148} {i:32 t:5 c:8497} {i:33 t:5 c:8235} {i:34 t:5 c:1128} {i:35 t:5 c:7234} {i:36 t:5 c:1620} {i:37 t:5 c:2542} {i:38 t:5 c:67} {i:39 t:5 c:8011} {i:40 t:5 c:3610} {i:41 t:5 c:1921} {i:42 t:5 c:3330} {i:43 t:5 c:9652} {i:44 t:5 c:9650} {i:45 t:5 c:5721} {i:46 t:5 c:7406} {i:47 t:5 c:8614} {i:48 t:5 c:6755} {i:49 t:5 c:336} {i:50 t:5 c:1132} {i:51 t:5 c:5433} {i:52 t:5 c:7354} {i:53 t:5 c:2554} {i:54 t:5 c:2124} {i:55 t:5 c:1390} {i:56 t:5 c:8900} {i:57 t:5 c:4465} {i:58 t:5 c:2927} {i:59 t:5 c:2955} {i:60 t:5 c:9768} {i:61 t:5 c:8387} {i:62 t:5 c:1016} {i:63 t:5 c:2660} {i:64 t:5 c:9718} {i:65 t:5 c:8388} {i:66 t:5 c:6385} {i:67 t:5 c:1814} {i:68 t:5 c:949} {i:69 t:5 c:8260} {i:70 t:5 c:9069} {i:71 t:5 c:4912} {i:72 t:5 c:7610} {i:73 t:5 c:1486} {i:74 t:5 c:6816} {i:75 t:5 c:5609} {i:76 t:5 c:2516} {i:77 t:5 c:9389} {i:78 t:5 c:5971} {i:79 t:5 c:6454} {i:80 t:5 c:5514} {i:81 t:5 c:4355} {i:82 t:5 c:7074} {i:83 t:5 c:6885} {i:84 t:5 c:2294} {i:85 t:5 c:4467} {i:86 t:12 c:9778}] commit:3 applyed:3 next:[-1 -1 -1 -1 -1]
+exit status 1
+FAIL	6.824/src/raft	2.817s
+2017/11/21 16:40:38 apply error: commit index=3 server=0 9866 != server=4 9130
+
+// 责任在3， term 12 给 0 拷贝 logs时没有覆盖掉不对的T5 9866
