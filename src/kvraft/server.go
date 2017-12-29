@@ -18,6 +18,13 @@ type Op struct {
 	// otherwise RPC will break.
 }
 
+type SeenType int
+
+const (
+	TimeOut     SeenType = iota
+	AlreadyDone
+)
+
 type RaftKV struct {
 	mu      sync.Mutex
 	me      int
@@ -25,10 +32,10 @@ type RaftKV struct {
 	applyCh chan raft.ApplyMsg
 	syncCh  chan []string // sync apply disposer and front end
 
-	maxraftstate int // snapshot if log grows this big
-	kvmap        map[string]string
-	discards     map[string]bool
-	logI         int
+	maxraftstate int               // snapshot if log grows this big
+	kvmap        map[string]string // kv database
+	notfinish    map[string]bool   // for request notfinish but not finished in time
+	done         map[string]bool   // for request done
 
 	// Your definitions here.
 }
@@ -46,8 +53,16 @@ func getCKV(wrap interface{}) (c, k, v string) {
 	panic("wrong type")
 }
 
-func (kv *RaftKV) commendIndexKey(cmd string) string {
-	return cmd + "~" + strconv.Itoa(kv.logI)
+func commendIndexKey(cmd string, cId, rId int) string {
+	return strconv.Itoa(cId) + "~" + strconv.Itoa(rId) + "~" + cmd
+}
+
+func decomposeCKey(cKey string) (cId, rId int, cmd string) {
+	strs := strings.SplitN(cKey, "~", -1)
+	cId, _ = strconv.Atoi(strs[0])
+	rId, _ = strconv.Atoi(strs[1])
+	cmd = strs[2]
+	return
 }
 
 func (kv *RaftKV) disposeAplMsg() {
@@ -58,11 +73,12 @@ func (kv *RaftKV) disposeAplMsg() {
 		case aplMsg := <-kv.applyCh:
 			wrap := aplMsg.Command.([]string)
 			c, k, v := getCKV(wrap)
-			DAplRecvPrintf("[APLRecv] got me:%d cKey: %s lastWant: %s lastDone: %s k: %s v: %s\n",
-				kv.me, lastWantCKey, lastDoneCKey, c, k, v)
-			if strings.HasPrefix(c, "Get") {
+			cId, rId, cmd := decomposeCKey(c)
+			DAplRecvPrintf("[APLRecv] got serv:%d cId:%d rId:%d cKey:%s lastWant:%s lastDone:%s k:%s v:%s\n",
+				kv.me, cId, rId, c, lastWantCKey, lastDoneCKey, k, v)
+			if strings.HasPrefix(cmd, "Get") {
 				v = kv.kvmap[k]
-			} else if strings.HasPrefix(c, "Put") {
+			} else if strings.HasPrefix(cmd, "Put") {
 				kv.kvmap[k] = v
 			} else {
 				kv.kvmap[k] += v
@@ -71,17 +87,20 @@ func (kv *RaftKV) disposeAplMsg() {
 			if c == lastWantCKey {
 				go func(v string, ch chan []string) {
 					DAplRecvPrintf("[APLRecv] send me:%d cKey: %s k: %s v: %s\n", kv.me, c, k, v)
-					ch <- wrapCKV(c,k,v)
+					ch <- wrapCKV(c, k, v)
 				}(v, kv.syncCh)
 			}
 		case wrap := <-kv.syncCh: // todo assuming the ckey goes ahead from the aplMsg, apparently
 			cKey, k, v := getCKV(wrap)
-			DAplRecvPrintf("[APLRecv] want %s lastDone %s lastWant %s\n", cKey, lastDoneCKey, lastWantCKey)
+			cId, rId, cmd := decomposeCKey(cKey)
+			DAplRecvPrintf("[APLRecv] serv:%d cId:%d rId:%d cmd:%d want %s lastDone %s lastWant %s\n",
+				kv.me, cId, rId, cmd, cKey, lastDoneCKey, lastWantCKey)
 			lastWantCKey = cKey
 			if lastDoneCKey == cKey { // already got
 				c := cKey
 				DAplRecvPrintf("[APLRecv] send me:%d cKey: %s \n", kv.me, c)
-				if strings.HasPrefix(cKey, "Get") {
+				_, _, cmd := decomposeCKey(c)
+				if strings.HasPrefix(cmd, "Get") {
 					v = kv.kvmap[k]
 				}
 				kv.syncCh <- wrapCKV(cKey, k, v)
@@ -91,14 +110,30 @@ func (kv *RaftKV) disposeAplMsg() {
 }
 
 func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
+	//todo add logic to remove done req,
+	//todo add logic to remove notfinish req
 	// Your code here.
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 	key := args.Key
-	cKey := kv.commendIndexKey("Get")
+
+	cKey := commendIndexKey("Get", args.ClId, args.ReqId)
 	wrap := wrapCKV(cKey, key, "")
 	reply.ServId = kv.me
 	DServPrintf("Get [Request] serv %d wrap %v\n", kv.me, wrap)
+
+	if kv.done[cKey] {
+		reply.Value = kv.kvmap[key]
+		return
+	}
+
+	// for not finished ones
+	if kv.notfinish[cKey] {
+		kv.syncCh <- wrap
+		kv.waitGet(cKey, reply)
+		return
+	}
+
 	ind, term, isL := kv.rf.Start(wrap)
 	//todo
 	DServPrintf("Get [Reply] serv %d ind %d term %d isL %t\n", kv.me, ind, term, isL)
@@ -108,16 +143,22 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 	}
 
 	//send the cKey
-	kv.syncCh <- wrapCKV(cKey,key,"")
+	kv.syncCh <- wrapCKV(cKey, key, "")
 
 	//wait the answer or timeout
+	kv.waitGet(cKey, reply)
+}
+
+func (kv *RaftKV) waitGet(cKey string, reply *GetReply) {
 	select {
-	case <-time.After(time.Second * 1): // todo, time out 1s ?
+	case <-time.After(time.Second * 1):
 		reply.Err = Error_TimeOut
-	case wrapRes := <-kv.syncCh:
-		_,_,v := getCKV(wrapRes)
+		kv.notfinish[cKey] = true
+	case wrap := <-kv.syncCh:
+		c, k, v := getCKV(wrap)
 		reply.Value = v
-		kv.logI++
+		kv.done[cKey] = true
+		DServPrintf("Get [Got] serv %d c: %s k: %s v: %s\n", kv.me, c, k, v)
 	}
 }
 
@@ -128,17 +169,23 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
+
+	clId := args.ClId
+	reqId := args.ReqId
 	key := args.Key
 	val := args.Value
-	cKey := kv.commendIndexKey(args.Op)
+	cKey := commendIndexKey(args.Op, clId, reqId)
 	wrap := wrapCKV(cKey, key, val)
 	reply.ServId = kv.me
 
 	DServPrintf("PutAppend [Request] serv %d wrap %v\n", kv.me, wrap)
 
-	//for discarded ones, do not resend
-	if kv.discards[cKey] {
-		reply.Err = Error_Discarded
+	if kv.done[cKey] {
+		return
+	}
+
+	// for not finished ones, do not resend
+	if kv.notfinish[cKey] {
 		kv.syncCh <- wrap
 		kv.waitPutAppend(cKey, reply)
 		return
@@ -164,11 +211,11 @@ func (kv *RaftKV) waitPutAppend(cKey string, reply *PutAppendReply) {
 	select {
 	case <-time.After(time.Second * 1): // todo, time out 1s ?
 		reply.Err = Error_TimeOut
-		kv.discards[cKey] = true
+		kv.notfinish[cKey] = true
 	case wrap := <-kv.syncCh:
 		c, k, v := getCKV(wrap)
+		kv.done[cKey] = true
 		DServPrintf("PutAppend [Got] serv %d c: %s k: %s v: %s\n", kv.me, c, k, v)
-		kv.logI++
 	}
 }
 
@@ -216,7 +263,8 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	// Your initialization code here.
 
 	kv.kvmap = make(map[string]string, 1024)
-	kv.discards = make(map[string]bool, 1024)
+	kv.notfinish = make(map[string]bool, 1024)
+	kv.done = make(map[string]bool, 1024)
 	kv.syncCh = make(chan []string)
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)

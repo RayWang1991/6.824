@@ -10,6 +10,7 @@ type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
 	id            int // id for client
+	reqId         int // request id, auto increase
 	lastLeader    int
 	orderdServers []*labrpc.ClientEnd
 }
@@ -75,13 +76,19 @@ func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
 
+	clId := ck.id
+	reqId := ck.reqId
+
 	gotRes := false
 	val := ""
 
+	DClientPrintf("Get [Client] Start me:%d rid:%d For %s\n", ck.id, reqId, key)
 	for !gotRes {
 		for i, serv := range ck.orderdServers {
 			arg := GetArgs{
-				Key: key,
+				ClId:  clId,
+				ReqId: reqId,
+				Key:   key,
 			}
 
 			reply := GetReply{
@@ -100,6 +107,8 @@ func (ck *Clerk) Get(key string) string {
 			break
 		}
 	}
+	DClientPrintf("Get [Client] End me:%d rid:%d For %s\n", ck.id, reqId, key)
+	ck.reqId ++
 	return val
 }
 
@@ -116,11 +125,16 @@ func (ck *Clerk) Get(key string) string {
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
 
+	clId := ck.id
+	reqId := ck.reqId
+	DClientPrintf("PutAppend [Client] Start me:%d rId:%d For %s %s %s\n",
+		ck.id, reqId, key, value, op)
 	gotRes := false
-
 	for !gotRes {
 		for i, serv := range ck.orderdServers {
 			arg := PutAppendArgs{
+				ClId:  clId,
+				ReqId: reqId,
 				Key:   key,
 				Value: value,
 				Op:    op,
@@ -128,7 +142,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			reply := PutAppendReply{
 			}
 			ok := serv.Call("RaftKV.PutAppend", &arg, &reply)
-			DClientPrintf("PutAppend Client Got ok %t serv %d wrongL %t Err %s\n", ok, reply.ServId, reply.WrongLeader, reply.Err)
+			DClientPrintf("PutAppend Client %d Got ok %t serv %d wrongL %t Err %s Key %s V %s\n",
+				ck.id, ok, reply.ServId, reply.WrongLeader, reply.Err, arg.Key, arg.Value)
 			if !ok || reply.WrongLeader || reply.Err != "" {
 				continue
 			}
@@ -139,6 +154,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			break
 		}
 	}
+	DClientPrintf("PutAppend [Client] me:%d rId:%d End For %s %s %s\n", ck.id, reqId, key, value, op)
+	ck.reqId ++
 }
 
 func (ck *Clerk) Put(key string, value string) {
