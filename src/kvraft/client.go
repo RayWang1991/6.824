@@ -31,6 +31,7 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck.id = idPool
 	idPool++
 	// You'll have to add code here.
+	DClientPrintf("NewClerk id:%d\n", ck.id)
 	return ck
 }
 
@@ -78,7 +79,7 @@ func (ck *Clerk) Get(key string) string {
 
 	clId := ck.id
 	reqId := ck.reqId
-
+	var servId int
 	gotRes := false
 	val := ""
 
@@ -94,20 +95,22 @@ func (ck *Clerk) Get(key string) string {
 			reply := GetReply{
 			}
 			ok := serv.Call("RaftKV.Get", &arg, &reply)
-			DClientPrintf("Get Client Got ok %t serv %d wrongL %t K %s V %s Err %s\n",
-				ok, reply.ServId, reply.WrongLeader, arg.Key, reply.Value, reply.Err)
+			DClientPrintf("Get Client %d req %d Got ok %t serv %d wrongL %t K %s V %s Err %s\n",
+				clId, reqId, ok, reply.ServId, reply.WrongLeader, arg.Key, reply.Value, reply.Err)
 			if !ok || reply.WrongLeader || reply.Err != "" {
 				continue
 			}
 			gotRes = true
 			val = reply.Value
+			servId = reply.ServId
 			if i != ck.lastLeader {
 				ck.ReOrderedServers(i)
 			}
 			break
 		}
 	}
-	DClientPrintf("Get [Client] End me:%d rid:%d For %s\n", ck.id, reqId, key)
+	DClientPrintf("Get [Client] End me:%d rid:%d For %s from serv %d\n",
+		ck.id, reqId, key, servId)
 	ck.reqId ++
 	return val
 }
@@ -127,7 +130,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 
 	clId := ck.id
 	reqId := ck.reqId
-	DClientPrintf("PutAppend [Client] Start me:%d rId:%d For %s %s %s\n",
+	DClientPrintf("PutAppend [Client] me:%d rId:%d For %s %s %s START\n",
 		ck.id, reqId, key, value, op)
 	gotRes := false
 	for !gotRes {
@@ -154,7 +157,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			break
 		}
 	}
-	DClientPrintf("PutAppend [Client] me:%d rId:%d End For %s %s %s\n", ck.id, reqId, key, value, op)
+	DClientPrintf("PutAppend [Client] me:%d rId:%d For %s %s %s END\n", ck.id, reqId, key, value, op)
 	ck.reqId ++
 }
 
