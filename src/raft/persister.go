@@ -15,6 +15,9 @@ type Persister struct {
 	mu        sync.Mutex
 	raftstate []byte
 	snapshot  []byte
+	kvmap     []byte
+	notFin    []byte
+	done      []byte
 }
 
 func MakePersister() *Persister {
@@ -27,6 +30,9 @@ func (ps *Persister) Copy() *Persister {
 	np := MakePersister()
 	np.raftstate = ps.raftstate
 	np.snapshot = ps.snapshot
+	np.kvmap = ps.kvmap
+	np.notFin = ps.notFin
+	np.done = ps.done
 	return np
 }
 
@@ -58,4 +64,43 @@ func (ps *Persister) ReadSnapshot() []byte {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	return ps.snapshot
+}
+
+func (ps *Persister) SaveNotFin(notFin []byte) {
+	ps.mu.Lock()
+	ps.notFin = notFin
+	ps.mu.Unlock()
+}
+
+func (ps *Persister) SaveDone(data []byte) {
+	ps.mu.Lock()
+	ps.done = data
+	ps.mu.Unlock()
+}
+
+func (ps *Persister) SaveKVMap(data []byte) {
+	ps.mu.Lock()
+	ps.kvmap = data
+	ps.mu.Unlock()
+}
+
+func (ps *Persister) ReadNotFin() []byte {
+	ps.mu.Lock()
+	res := ps.notFin
+	ps.mu.Unlock()
+	return res
+}
+
+func (ps *Persister) ReadDone() []byte {
+	ps.mu.Lock()
+	res := ps.done
+	ps.mu.Unlock()
+	return res
+}
+
+func (ps *Persister) ReadKVMap() []byte {
+	ps.mu.Lock()
+	res := ps.kvmap
+	ps.mu.Unlock()
+	return res
 }

@@ -26,10 +26,11 @@ const (
 )
 
 type RaftKV struct {
-	mu      sync.Mutex
-	me      int
-	rf      *raft.Raft
-	applyCh chan raft.ApplyMsg
+	mu        sync.Mutex
+	me        int
+	rf        *raft.Raft
+	persister *raft.Persister
+	applyCh   chan raft.ApplyMsg
 
 	answerCh chan []string  // for disposer to return answerCh
 	syncCh   chan []string  // for front ent to sync apply disposer
@@ -90,12 +91,17 @@ func (kv *RaftKV) disposeAplMsg() {
 				v = kv.kvmap[k]
 			} else if strings.HasPrefix(cmd, "Put") {
 				kv.kvmap[k] = v
+				kv.persistMap()
 			} else {
 				kv.kvmap[k] += v
+				kv.persistMap()
 			}
 			kv.done[cKey] = true
 			lastDoneCKey = cKey
+
+			kv.persistDone()
 			break
+			/*
 			//debug
 			if cKey == lastWantCKey {
 				go func(v string, ch chan []string) {
@@ -104,6 +110,7 @@ func (kv *RaftKV) disposeAplMsg() {
 					DAplRecvPrintf("[APLRecv-AplMsg-End] send me:%d cKey: %s k: %s v: %s\n", kv.me, cKey, k, v)
 				}(v, kv.answerCh)
 			}
+			*/
 		case wrap := <-kv.syncCh: // todo assuming the ckey goes ahead from the aplMsg, apparently
 			cKey, k, v := getCKV(wrap)
 			cId, rId, cmd := decomposeCKey(cKey)
@@ -163,6 +170,8 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 	//todo
 	reply.Err = Error_NotWant
 	kv.notFinish[cKey] = true
+
+	kv.persistNotFin()
 
 	/*
 	//send the cKey
@@ -239,6 +248,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	kv.notFinish[cKey] = true
 	reply.Err = Error_NotWant
 
+	kv.persistNotFin()
 	/*
 	//send the cKey
 	kv.syncCh <- wrap
@@ -305,7 +315,7 @@ func (kv *RaftKV) String() string {
 func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int) *RaftKV {
 	// call gob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.
-	gob.Register(Op{})
+	gob.Register(Op{}) // todo, use more complicated type
 
 	kv := new(RaftKV)
 	kv.me = me
@@ -321,8 +331,76 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.answerCh = make(chan []string)
 	kv.doneCh = make(chan []string)
 	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.persister = persister
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
+	kv.readPersist()
+
 	go kv.disposeAplMsg()
+
+	// recover from persister
+	//kv.rf.readPersist(persister.ReadRaftState())
+
+	//debug
+	DServPrintf("Server %d start logs:%d\n", kv.me, persister.RaftStateSize())
+
 	return kv
+}
+
+// persist local data
+func (kv *RaftKV) persistDone() {
+	w := new(bytes.Buffer)
+	e := gob.NewEncoder(w)
+	e.Encode(kv.done)
+	data := w.Bytes()
+	kv.persister.SaveDone(data)
+}
+
+func (kv *RaftKV) persistNotFin() {
+	w := new(bytes.Buffer)
+	e := gob.NewEncoder(w)
+	e.Encode(kv.notFinish)
+	data := w.Bytes()
+	kv.persister.SaveNotFin(data)
+}
+
+func (kv *RaftKV) persistMap() {
+	w := new(bytes.Buffer)
+	e := gob.NewEncoder(w)
+	e.Encode(kv.kvmap)
+	data := w.Bytes()
+	kv.persister.SaveKVMap(data)
+}
+
+
+// read persister
+func (kv *RaftKV) readPersist() {
+	// Your code here.
+	// Example:
+	// r := bytes.NewBuffer(data)
+	// d := gob.NewDecoder(r)
+	// d.Decode(&rf.xxx)
+	// d.Decode(&rf.yyy)
+	var err error
+	p := kv.persister
+	r := bytes.NewBuffer(p.ReadKVMap())
+	d := gob.NewDecoder(r)
+	err = d.Decode(&kv.kvmap)
+	if err != nil {
+		DPrintf("error in decode \"kvmap\" %v\n", err)
+	}
+
+	r = bytes.NewBuffer(p.ReadNotFin())
+	d = gob.NewDecoder(r)
+	err = d.Decode(&kv.notFinish)
+	if err != nil {
+		DPrintf("error in decode \"notFinish\" %v\n", err)
+	}
+
+	r = bytes.NewBuffer(p.ReadDone())
+	d = gob.NewDecoder(r)
+	err = d.Decode(&kv.done)
+	if err != nil {
+		DPrintf("error in decode \"done\" %v\n", err)
+	}
 }
